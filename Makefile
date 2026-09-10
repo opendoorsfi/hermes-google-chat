@@ -2,7 +2,8 @@
 
 SHELL_SCRIPTS := infra/setup_gcp.sh infra/setup_tenant_gcp.sh \
 	deploy/cloudrun/deploy.sh deploy/entrypoint.sh deploy/host/tailscale-funnel.sh \
-	scripts/lib/tenant.sh scripts/bootstrap_github_secrets.sh $(wildcard scripts/*.sh)
+	scripts/lib/tenant.sh scripts/bootstrap_github_secrets.sh \
+	scripts/bootstrap_hermes_host.sh $(wildcard scripts/*.sh)
 
 test:
 	python3 -m pytest tests/ -v
