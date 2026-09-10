@@ -45,3 +45,33 @@ def test_caddy_template_has_placeholder() -> None:
 def test_systemd_units_exist() -> None:
     assert (ROOT / "deploy" / "systemd" / "hermes-gateway@.service").is_file()
     assert (ROOT / "deploy" / "systemd" / "caddy-hermes.service").is_file()
+
+
+def test_github_workflows_exist() -> None:
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "make validate" in ci
+
+    tenant = (ROOT / ".github" / "workflows" / "tenant-gcp.yml").read_text(encoding="utf-8")
+    assert "workflow_dispatch" in tenant
+    assert "infra/setup_tenant_gcp.sh" in tenant
+    assert "secrets.GCP_WIF_PROVIDER" in tenant
+    assert "secrets.GCP_DEPLOY_SA_EMAIL" in tenant
+    assert 'SKIP_SA_KEY: "1"' in tenant
+
+
+def test_setup_tenant_gcp_rejects_placeholder_funnel() -> None:
+    proc = subprocess.run(
+        ["bash", "infra/setup_tenant_gcp.sh"],
+        cwd=ROOT,
+        env={"PATH": "/usr/bin:/bin", "TENANT": "alice"},
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 1
+    assert "placeholder" in proc.stdout
+
+
+def test_no_monorepo_secrets_target() -> None:
+    for script in (ROOT / "scripts").glob("*.sh"):
+        text = script.read_text(encoding="utf-8")
+        assert "--repo opendoorsfi/moderate" not in text, f"{script.name} viittaa monorepoon"

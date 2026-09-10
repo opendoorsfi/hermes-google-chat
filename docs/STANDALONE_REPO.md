@@ -1,5 +1,8 @@
 # Erillinen repo (tuotanto)
 
+> **Tila:** export on tehty — tämä repo *on* `opendoorsfi/hermes-google-chat`. Alla olevat
+> export/push-ohjeet ovat historiallisia; jäljellä on vain [secrets + WIF](GITHUB_SECRETS.md).
+
 | Repo | Vastuu |
 |------|--------|
 | **opendoorsfi/hermes-google-chat** | Hermes + Google Chat multi-tenant |

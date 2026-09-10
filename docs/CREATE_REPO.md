@@ -1,5 +1,7 @@
 # GitHub-repon luonti
 
+> **Tila:** vaiheet 1–4 on tehty (repo on olemassa, sisältö pushattu). Jäljellä: [5. Secrets](#5-secrets-vasta-kun-push-onnistui) ja [6. WIF](#6-wif-gcp-kerran).
+
 Hermes Google Chat kuuluu repoonsa **`opendoorsfi/hermes-google-chat`**.
 
 `gh repo create` vaatii org-admin-oikeudet. Cursor-agentti ja tavallinen `gh`-token eivät aina riitä.

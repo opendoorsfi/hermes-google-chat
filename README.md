@@ -26,17 +26,19 @@ Google Chat → Tailscale Funnel (HTTPS)
 
 ## GitHub Actions
 
-| Workflow | Kuvaus |
-|----------|--------|
-| **CI** | push/PR → pytest + lint |
-| **Setup tenant GCP** | manuaalinen → `infra/setup_tenant_gcp.sh` + artefaktit |
+| Workflow | Tiedosto | Kuvaus |
+|----------|----------|--------|
+| **CI** | `.github/workflows/ci.yml` | push/PR → `make validate` + standalone-check |
+| **Setup tenant GCP** | `.github/workflows/tenant-gcp.yml` | manuaalinen (`tenant`, `funnel_base_url`) → `infra/setup_tenant_gcp.sh` + artefaktit |
 
 Secrets: `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` — ks. [docs/GITHUB_SECRETS.md](docs/GITHUB_SECRETS.md)
 
 ## Kehitys
 
 ```bash
-make validate          # pytest + shellcheck
+pip install -r requirements-dev.txt   # pytest; shellcheck: apt-get install shellcheck
+make validate                         # pytest + shellcheck (fallback bash -n)
+make standalone-check                 # validate + workflowt + docs
 bash scripts/verify_tenant.sh alice
 ```
 

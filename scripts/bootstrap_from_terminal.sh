@@ -34,6 +34,7 @@ fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
 GCP_REGION="${GCP_REGION:-europe-north1}"
+HERMES_GITHUB_REPO="${HERMES_GITHUB_REPO:-opendoorsfi/hermes-google-chat}"
 SET_GH_SECRETS=false
 
 for arg in "$@"; do
@@ -75,9 +76,9 @@ if [[ "${SET_GH_SECRETS}" == true ]]; then
     echo "Aseta GCP_WIF_PROVIDER ja GCP_DEPLOY_SA_EMAIL ympäristöön ennen --set-github-secrets"
     exit 1
   fi
-  gh secret set GCP_WIF_PROVIDER --repo opendoorsfi/moderate --body "${WIF}"
-  gh secret set GCP_DEPLOY_SA_EMAIL --repo opendoorsfi/moderate --body "${SA}"
-  echo "GitHub secrets asetettu."
+  gh secret set GCP_WIF_PROVIDER --repo "${HERMES_GITHUB_REPO}" --body "${WIF}"
+  gh secret set GCP_DEPLOY_SA_EMAIL --repo "${HERMES_GITHUB_REPO}" --body "${SA}"
+  echo "GitHub secrets asetettu (${HERMES_GITHUB_REPO})."
 fi
 
 echo ""

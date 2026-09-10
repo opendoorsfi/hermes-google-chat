@@ -4,6 +4,10 @@
 #   TENANT=alice bash infra/setup_tenant_gcp.sh
 #   # or
 #   GCP_PROJECT=hermes-alice CHAT_HTTP_EVENTS_URL=https://... bash infra/setup_tenant_gcp.sh
+#
+# Ympäristömuuttujat GCP_PROJECT ja FUNNEL_BASE_URL ylikirjoittavat manifestin arvot
+# (GitHub Actions: manifestit ovat gitignoressa, vain *.env.example on repossa).
+# SKIP_SA_KEY=1 → ei luoda SA JSON -avainta (CI: avain luodaan Consolesta hostille).
 
 set -euo pipefail
 
@@ -12,9 +16,18 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${ROOT}/scripts/lib/tenant.sh"
 
 TENANT="${TENANT:-}"
+GCP_PROJECT_OVERRIDE="${GCP_PROJECT:-}"
+FUNNEL_BASE_URL_OVERRIDE="${FUNNEL_BASE_URL:-}"
 if [[ -n "${TENANT}" ]]; then
   load_tenant "${TENANT}"
-  GCP_PROJECT="${GCP_PROJECT:?}"
+  GCP_PROJECT="${GCP_PROJECT_OVERRIDE:-${GCP_PROJECT:?}}"
+  FUNNEL_BASE_URL="${FUNNEL_BASE_URL_OVERRIDE:-${FUNNEL_BASE_URL:-}}"
+  if [[ -z "${CHAT_HTTP_EVENTS_URL:-}" && "${FUNNEL_BASE_URL}" == *tailXXXX* ]]; then
+    echo "VIRHE: FUNNEL_BASE_URL on placeholder (${FUNNEL_BASE_URL})."
+    echo "  Kopioi config/tenants/${TENANT}.env.example → ${TENANT}.env ja aseta oikea Funnel-URL,"
+    echo "  tai anna FUNNEL_BASE_URL=https://<host>.ts.net ympäristömuuttujana."
+    exit 1
+  fi
   CHAT_HTTP_EVENTS_URL="${CHAT_HTTP_EVENTS_URL:-$(tenant_chat_http_url)}"
 fi
 
@@ -59,7 +72,11 @@ OUT_DIR="${ROOT}/out/tenants/${TENANT:-${GCP_PROJECT}}"
 mkdir -p "${OUT_DIR}"
 
 KEY_PATH="${OUT_DIR}/hermes-chat-bot-sa.json"
-if [[ ! -f "${KEY_PATH}" ]]; then
+if [[ "${SKIP_SA_KEY:-0}" == "1" ]]; then
+  echo "==> SKIP_SA_KEY=1 — SA JSON -avainta ei luoda. Luo avain Consolesta:"
+  echo "  IAM → Service Accounts → ${SA_EMAIL} → Keys → Add key → JSON"
+  echo "  Tallenna hostille: /home/<linux_user>/.hermes/secrets/google-chat-sa.json"
+elif [[ ! -f "${KEY_PATH}" ]]; then
   echo "==> Yritetään SA JSON -avain (tarvitaan host-VM:llä outbound Chat REST)"
   if gcloud iam service-accounts keys create "${KEY_PATH}" \
     --iam-account="${SA_EMAIL}" \
