@@ -17,12 +17,17 @@ Google Chat → Tailscale Funnel (HTTPS)
 - **Team-botti:** jaettu Chat-space
 - **Ei** Cloud Run -embedded agenttia tuotannossa
 
-## Aloitus
+## Käyttäjät (tavoite)
 
-1. **[docs/GOOGLE_CHAT_INSTALL.md](docs/GOOGLE_CHAT_INSTALL.md)** — asenna Google Chat (secrets → GCP → host → Chat Console)
-2. [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) — multi-tenant arkkitehtuuri
-3. GitHub secrets (kerran, admin): `bash scripts/bootstrap_github_secrets.sh`
-4. Kopioi `config/tenants/alice.env.example` → `alice.env` → `TENANT=alice bash scripts/provision_tenant.sh`
+**Anna vain sähköposti** → agentti lisää [`config/tenants/registry.json`](config/tenants/registry.json) → GitHub Actions **Sync Chat users** hoitaa GCP:n.  
+Ohje: [docs/USERS.md](docs/USERS.md)
+
+Esimerkki: `ipad@info.opendoors.fi` on jo registryssä.
+
+## Infra (kerran, ei loppukäyttäjälle)
+
+1. [docs/GOOGLE_CHAT_INSTALL.md](docs/GOOGLE_CHAT_INSTALL.md) — host + Funnel + self-hosted runner `hermes-host`
+2. [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) — arkkitehtuuri
 
 ## GitHub Actions
 

@@ -6,6 +6,7 @@ config/tenants/*.env
 !config/tenants/*.env.example
 out/
 *.json
+!config/tenants/registry.json
 !profiles/**/config.yaml
 !.cursor/
 !.cursor/environment.json
