@@ -66,5 +66,7 @@ jobs:
             echo
             echo "**Console (yksi Save):** $(python3 -c "import json,sys; print(json.loads(sys.argv[1])['console_url'])" "${HUB}")"
             echo
-            cat "out/chat-app/CHAT_APP_SETUP.md" 2>/dev/null || cat "out/tenants/${TENANT}/CHAT_APP_SETUP.md"
+            cat "out/chat-app/CHAT_APP_SETUP.md" 2>/dev/null \
+              || cat "out/tenants/${TENANT}/CHAT_APP_SETUP.md" 2>/dev/null \
+              || echo "_(CHAT_APP_SETUP.md ei generoitu tässä ajossa — katso provision.log)_"
           } >> "$GITHUB_STEP_SUMMARY"
