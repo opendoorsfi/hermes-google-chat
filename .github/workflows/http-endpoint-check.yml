@@ -25,9 +25,14 @@ jobs:
           echo "Inbound host: ${HOST:-default}"
           echo "URL: ${INBOUND}"
           python3 scripts/chat_registry.py summary | head -20
-          CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${INBOUND}" \
-            -H 'Content-Type: application/json' -d '{}' --max-time 25 2>/dev/null || echo 000)"
-          echo "${INBOUND} → HTTP ${CODE}"
+          CODE="000"
+          for attempt in 1 2 3 4 5; do
+            CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${INBOUND}" \
+              -H 'Content-Type: application/json' -d '{}' --max-time 25 2>/dev/null || echo 000)"
+            echo "attempt ${attempt}: ${INBOUND} → HTTP ${CODE}"
+            [[ "${CODE}" == "401" || "${CODE}" == "403" ]] && break
+            [[ "${CODE}" == "502" || "${CODE}" == "503" || "${CODE}" == "000" ]] && sleep 15
+          done
           if [[ "${CODE}" == "401" || "${CODE}" == "403" ]]; then
             echo "OK — Chat inbound endpoint valmis"
             exit 0
