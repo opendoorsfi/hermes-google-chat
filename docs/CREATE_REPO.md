@@ -65,13 +65,20 @@ git push -u origin main
 ## 5. Secrets (vasta kun push onnistui)
 
 ```bash
+gh auth login   # repo admin / fine-grained PAT (Contents write)
+bash scripts/bootstrap_github_secrets.sh
+```
+
+Tai käsin:
+
+```bash
 gh secret set GCP_WIF_PROVIDER --repo opendoorsfi/hermes-google-chat \
   --body 'projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
 gh secret set GCP_DEPLOY_SA_EMAIL --repo opendoorsfi/hermes-google-chat \
   --body 'github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com'
 ```
 
-404 = repo puuttuu tai ei oikeuksia.
+404 / 403 = repo puuttuu tai tokenilla ei secrets-oikeutta (Cloud Agent ei voi asettaa).
 
 ## 6. WIF (GCP, kerran)
 
