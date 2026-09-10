@@ -14,6 +14,10 @@ POOL="${WIF_POOL:-github-pool}"
 PROVIDER="${WIF_PROVIDER:-github-provider}"
 DEPLOY_SA="${DEPLOY_SA:-github-hermes-deploy@${GCP_PROJECT}.iam.gserviceaccount.com}"
 HERMES_GITHUB_REPO="${HERMES_GITHUB_REPO:-opendoorsfi/hermes-google-chat}"
+HERMES_GITHUB_ORG="${HERMES_GITHUB_ORG:-${HERMES_GITHUB_REPO%%/*}}"
+WIF_ATTRIBUTE_MAPPING="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner"
+# GCP vaatii attribute-condition create-oidc:ssä (2024+). assertion.* viittaa GitHub OIDC -claimiin.
+WIF_ATTRIBUTE_CONDITION="assertion.repository=='${HERMES_GITHUB_REPO}' && assertion.repository_owner=='${HERMES_GITHUB_ORG}'"
 
 PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT}" --format='value(projectNumber)')"
 WIF_PROVIDER="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVIDER}"
@@ -46,16 +50,18 @@ if ! gcloud iam workload-identity-pools providers describe "${PROVIDER}" \
     --location=global \
     --workload-identity-pool="${POOL}" \
     --display-name="GitHub provider" \
-    --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+    --attribute-mapping="${WIF_ATTRIBUTE_MAPPING}" \
+    --attribute-condition="${WIF_ATTRIBUTE_CONDITION}" \
     --issuer-uri="https://token.actions.githubusercontent.com"
+else
+  echo "==> WIF provider ${PROVIDER} on jo olemassa — päivitetään condition"
+  gcloud iam workload-identity-pools providers update-oidc "${PROVIDER}" \
+    --project="${GCP_PROJECT}" \
+    --location=global \
+    --workload-identity-pool="${POOL}" \
+    --attribute-mapping="${WIF_ATTRIBUTE_MAPPING}" \
+    --attribute-condition="${WIF_ATTRIBUTE_CONDITION}"
 fi
-
-echo "==> WIF: salli vain ${HERMES_GITHUB_REPO}"
-gcloud iam workload-identity-pools providers update-oidc "${PROVIDER}" \
-  --project="${GCP_PROJECT}" \
-  --location=global \
-  --workload-identity-pool="${POOL}" \
-  --attribute-condition="assertion.repository=='${HERMES_GITHUB_REPO}'"
 
 echo "==> IAM: ${HERMES_GITHUB_REPO} → ${DEPLOY_SA}"
 gcloud iam service-accounts add-iam-policy-binding "${DEPLOY_SA}" \
