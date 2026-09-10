@@ -8,6 +8,8 @@ on:
       - config/tenants/registry.json
       - scripts/repair_mac_chat.sh
       - scripts/ensure_mac_gateway_running.sh
+      - scripts/chat_registry.py
+      - .github/workflows/http-endpoint-check.yml
 
 jobs:
   check:
@@ -16,23 +18,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check Chat HTTP URLs
+      - name: Check Chat inbound HTTP URL
         run: |
-          python3 scripts/chat_registry.py summary > summary.txt
-          cat summary.txt
-          FAIL=0
-          while IFS= read -r url; do
-            [[ -n "${url}" ]] || continue
-            CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${url}" \
-              -H 'Content-Type: application/json' -d '{}' --max-time 20 2>/dev/null || echo 000)"
-            echo "${url} → HTTP ${CODE}"
-            if [[ "${CODE}" != "401" && "${CODE}" != "403" ]]; then
-              echo "::warning::${url} expected 401/403, got ${CODE} (502=gateway down on host)"
-              FAIL=1
-            fi
-          done < <(grep -o 'https://[^`]*google_chat/events' summary.txt || true)
-          if [[ "${FAIL}" == "1" ]]; then
-            echo ""
-            echo "Host-korjaus (Mac): bash scripts/repair_mac_chat.sh"
-            exit 1
+          INBOUND="$(python3 scripts/chat_registry.py inbound-url)"
+          HOST="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json')).get('chat_inbound_host',''))")"
+          echo "Inbound host: ${HOST:-default}"
+          echo "URL: ${INBOUND}"
+          python3 scripts/chat_registry.py summary | head -20
+          CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${INBOUND}" \
+            -H 'Content-Type: application/json' -d '{}' --max-time 25 2>/dev/null || echo 000)"
+          echo "${INBOUND} → HTTP ${CODE}"
+          if [[ "${CODE}" == "401" || "${CODE}" == "403" ]]; then
+            echo "OK — Chat inbound endpoint valmis"
+            exit 0
           fi
+          echo "::error::Chat inbound ${INBOUND} expected 401/403, got ${CODE}"
+          echo "502/000 = gateway tai API server ei kuuntele hostilla ${HOST}"
+          echo "Mac: cd ~/hermes-google-chat && git pull && bash scripts/repair_mac_chat.sh"
+          exit 1

@@ -95,7 +95,9 @@ else
   echo "VAROITUS: aja kerran: gcloud auth login && gcloud auth application-default login"
 fi
 if [[ -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
-  SA_CREDS="GOOGLE_APPLICATION_CREDENTIALS=${HERMES_HOME}/secrets/google-chat-sa.json"
+  SA_PATH="${HERMES_HOME}/secrets/google-chat-sa.json"
+  SA_CREDS="GOOGLE_CHAT_SERVICE_ACCOUNT_JSON=${SA_PATH}
+GOOGLE_APPLICATION_CREDENTIALS=${SA_PATH}"
 fi
 
 # API server on oletuksena pois (API_SERVER_ENABLED=false) → ilman tätä Funnel antaa 502.

@@ -204,11 +204,18 @@ jobs:
             python3 scripts/chat_registry.py summary
             echo "### Hermes-botti (projekti \`${GCP}\`, ei AzuraCast/moderointi)"
             echo "- App: **${APP_NAME}** (yksi app, monta käyttäjää)"
+            INBOUND="$(python3 scripts/chat_registry.py inbound-url)"
             if [[ "${{ needs.register.outputs.chat_transport }}" == "pubsub" ]]; then
               echo "- Pub/Sub + SA: luotu automaattisesti (job **Hermes Chat app**)"
               echo "- **Console-Save (kerran):** [Chat API Configuration](${CONSOLE})"
               echo "  - App name → **${APP_NAME}**"
               echo "  - Connection → Pub/Sub → \`projects/${GCP}/topics/${TOPIC}\`"
+              echo "  - Visibility → registryn käyttäjät"
+            else
+              echo "- **Console-Save (kerran):** [Chat API Configuration](${CONSOLE})"
+              echo "  - App name → **${APP_NAME}**"
+              echo "  - Connection → HTTP endpoint URL → \`${INBOUND}\`"
+              echo "  - Authentication audience → **HTTP endpoint URL** (ei Project number)"
               echo "  - Visibility → registryn käyttäjät"
             fi
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then

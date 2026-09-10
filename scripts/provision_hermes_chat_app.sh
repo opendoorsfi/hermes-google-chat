@@ -33,9 +33,12 @@ if [[ "${TRANSPORT}" == "pubsub" ]]; then
   CONNECTION_ROWS="| Connection settings | **Cloud Pub/Sub** |
 | Topic name | \`${TOPIC_FULL}\` |"
 else
+  INBOUND_URL="$(python3 "${ROOT}/scripts/chat_registry.py" inbound-url)"
+  export CHAT_HTTP_EVENTS_URL="${CHAT_HTTP_EVENTS_URL:-${INBOUND_URL}}"
   bash "${ROOT}/infra/setup_tenant_gcp.sh"
   CONNECTION_ROWS="| Connection settings | **HTTP endpoint URL** |
-| URL | \`${CHAT_HTTP_EVENTS_URL:-$(tenant_chat_http_url)}\` |"
+| URL | \`${CHAT_HTTP_EVENTS_URL}\` |
+| Authentication audience | **HTTP endpoint URL** (sama kuin URL — ei Project number) |"
 fi
 
 CONSOLE_URL="https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=${GCP_PROJECT}"

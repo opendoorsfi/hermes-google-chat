@@ -144,8 +144,9 @@ cat > "${OUT_DIR}/CHAT_CONSOLE_CHECKLIST.md" <<EOF
 4. **Functionality:** Receive 1:1 messages + Join spaces and group conversations
 5. **Connection settings:** HTTP endpoint URL
 6. **URL:** \`${CHAT_HTTP_EVENTS_URL}\`
-7. **Visibility:** Specific people → ${GOOGLE_CHAT_ALLOWED_USERS:-your@email}
-8. Save
+7. **Authentication audience:** HTTP endpoint URL (sama kuin URL — ei Project number)
+8. **Visibility:** Specific people → ${GOOGLE_CHAT_ALLOWED_USERS:-your@email}
+9. Save
 
 Install bot in Chat (DM for personal, space for team).
 EOF

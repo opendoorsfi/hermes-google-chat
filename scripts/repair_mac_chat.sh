@@ -31,6 +31,9 @@ print(users[0]['PORT'] if users else 8642)
 " 2>/dev/null || echo 8642)"
 
 echo "==> repair_mac_chat: ${EMAIL} port ${PORT}"
+TENANT="$(python3 -c "import re; e='${EMAIL}'.split('@')[0].lower(); print(re.sub(r'[^a-z0-9]+','-',e).strip('-'))")"
+export TENANT
+bash scripts/ensure_tenant_sa.sh "${TENANT}" || echo "VAROITUS: SA JSON puuttuu — outbound-viestit eivät toimi ennen gcloud/Secret Manager"
 # bootstrap kirjoittaa .env:n (API_SERVER_*, GOOGLE_CHAT_HTTP_EVENTS_*) ja käynnistää gatewayn uudelleen
 bash scripts/bootstrap_hermes_mac.sh "${EMAIL}" || true
 bash scripts/ensure_mac_gateway_running.sh "${PORT}"

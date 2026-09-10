@@ -206,15 +206,52 @@ def registry_chat_app_name(reg: dict | None = None) -> str:
     return tenant_manifest(users[0], 0, host_cfg, gcp_project, reg)["CHAT_APP_DISPLAY_NAME"]
 
 
+def inbound_host_id(reg: dict | None = None) -> str:
+    """Host that receives Google Chat HTTP callbacks (one URL per Chat app)."""
+    reg = reg or load_registry()
+    explicit = str(reg.get("chat_inbound_host", "")).strip()
+    if explicit:
+        return explicit
+    entries = iter_user_entries(reg)
+    if entries:
+        return str(entries[0][1] or "").strip()
+    return ""
+
+
+def inbound_manifest(reg: dict | None = None) -> dict[str, str]:
+    """Manifest for the host configured as Chat HTTP inbound (Console URL)."""
+    reg = reg or load_registry()
+    gcp_project = registry_gcp_project(reg)
+    host_id = inbound_host_id(reg)
+    entries = iter_user_entries(reg)
+    if not entries:
+        raise ValueError("registry.json: no users")
+    for i, (email, entry_host) in enumerate(entries):
+        if host_id and entry_host == host_id:
+            host_cfg = resolve_host(reg, host_id)
+            return tenant_manifest(email, i, host_cfg, gcp_project, reg)
+    email, entry_host = entries[0]
+    host_cfg = resolve_host(reg, entry_host or host_id)
+    return tenant_manifest(email, 0, host_cfg, gcp_project, reg)
+
+
+def inbound_events_url(reg: dict | None = None) -> str:
+    return chat_events_url(inbound_manifest(reg))
+
+
 def hub_meta() -> dict[str, str]:
     reg = load_registry()
     users = all_allowed_users(reg)
     transport = chat_transport(reg)
-    primary = email_to_tenant_id(users[0]) if users else "ipad"
+    inbound = inbound_manifest(reg)
+    primary = inbound["TENANT"]
     project = registry_gcp_project(reg)
+    events_url = chat_events_url(inbound)
     return {
         "transport": transport,
         "primary_tenant": primary,
+        "chat_inbound_host": inbound_host_id(reg),
+        "chat_http_events_url": events_url,
         "gcp_project": project,
         "github_deploy_sa": registry_deploy_sa(reg),
         "wif_provider": registry_wif_provider(reg),
@@ -260,7 +297,7 @@ def chat_events_url(manifest: dict[str, str]) -> str:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|github-env|summary|host-users HOST",
+            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|github-env|inbound-url|summary|host-users HOST",
             file=sys.stderr,
         )
         return 1
@@ -308,9 +345,16 @@ def main() -> int:
                 users.append(tenant_manifest(email, i, host_cfg, gcp_project, reg))
         print(json.dumps(users, indent=2))
         return 0
+    if cmd == "inbound-url":
+        print(inbound_events_url())
+        return 0
     if cmd == "summary":
         reg = load_registry()
         gcp_project = registry_gcp_project(reg)
+        inbound_url = inbound_events_url(reg)
+        print(f"**Chat inbound (Console HTTP URL):** `{inbound_url}`")
+        print(f"**Inbound host:** `{inbound_host_id(reg) or 'default'}`")
+        print()
         for i, (email, host_id) in enumerate(iter_user_entries(reg)):
             host_cfg = resolve_host(reg, host_id)
             m = tenant_manifest(email, i, host_cfg, gcp_project, reg)

@@ -5,6 +5,7 @@
   "shared_chat_sa": "hermes-chat-bot",
   "chat_app_display_name": "hermes-chat",
   "default_chat_transport": "http",
+  "chat_inbound_host": "natalia-mac",
   "chat_pubsub_topic": "hermes-chat-events",
   "chat_pubsub_subscription": "hermes-chat-events-sub",
   "funnel_base_url": "https://ubuntu-work-h.tail28712d.ts.net",
@@ -32,5 +33,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 19
+  "sync_version": 20
 }
