@@ -10,7 +10,7 @@ set -euo pipefail
 EMAIL="${1:-natalia@info.opendoors.fi}"
 EMAIL_LOWER="$(printf '%s' "${EMAIL}" | tr '[:upper:]' '[:lower:]')"
 TENANT="$(python3 -c "import re; e='${EMAIL_LOWER}'.split('@')[0]; print(re.sub(r'[^a-z0-9]+','-',e.lower()).strip('-'))")"
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
 PORT="${HERMES_CHAT_PORT:-8642}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

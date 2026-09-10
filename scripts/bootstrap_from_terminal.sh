@@ -33,7 +33,7 @@ if ! command -v "${GCLOUD}" >/dev/null 2>&1; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
 GCP_REGION="${GCP_REGION:-europe-north1}"
 HERMES_GITHUB_REPO="${HERMES_GITHUB_REPO:-opendoorsfi/hermes-google-chat}"
 SET_GH_SECRETS=false

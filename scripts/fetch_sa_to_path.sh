@@ -4,7 +4,7 @@
 set -euo pipefail
 
 DEST="${1:?Usage: fetch_sa_to_path.sh OUT_PATH [GCP_PROJECT]}"
-GCP_PROJECT="${2:-od-azuracast-sync}"
+GCP_PROJECT="${2:-$(python3 "$(dirname "$0")/chat_registry.py" hub-json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])" 2>/dev/null || echo od-kansiot)}"
 TENANT="${TENANT:-}"
 
 mkdir -p "$(dirname "${DEST}")"

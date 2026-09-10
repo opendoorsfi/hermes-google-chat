@@ -2,7 +2,7 @@
 # Hae GCP Chat-infra (Pub/Sub, SA, API) — GitHub Actions WIF.
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-$(python3 "$(dirname "$0")/chat_registry.py" hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])")}"
 TOPIC="${TOPIC:-hermes-chat-events}"
 SUB="${SUB:-hermes-chat-events-sub}"
 
@@ -61,7 +61,13 @@ echo "GCP ei tarjoa API:ta Console Configuration -kentille."
 echo "Tarkista manuaalisesti (admin-oikeudet):"
 echo "  https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=${GCP_PROJECT}"
 echo ""
-echo "Repo/registry odottaa (ipad):"
-echo "  App name: Hermes (Ipad)"
-echo "  Allowed:  ipad@info.opendoors.fi"
-echo "  Transport: Pub/Sub → projects/${GCP_PROJECT}/topics/${TOPIC}"
+if [[ -f config/tenants/registry.json ]]; then
+  python3 scripts/chat_registry.py hub-json | python3 -c "
+import json, sys
+h = json.load(sys.stdin)
+print('Registry odottaa:')
+print(f\"  App name: {h['chat_app_display_name']}\")
+print(f\"  Allowed:  {h['allowed_users']}\")
+print(f\"  Transport: Pub/Sub → projects/{h['gcp_project']}/topics/{h['pubsub_topic']}\")
+"
+fi

@@ -1,0 +1,70 @@
+name: Create Hermes Chat app (GCP)
+
+# Luo Pub/Sub + SA + Console-ohje (projekti: registry → od-kansiot).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: "Tenant id (esim. ipad)"
+        required: false
+        default: "ipad"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - scripts/provision_hermes_chat_app.sh
+      - .github/workflows/create-chat-app.yml
+      - config/tenants/registry.json
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  provision:
+    name: GCP + Chat app setup (${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: python3 scripts/chat_registry.py generate-all
+
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Provision Hermes Chat app (Pub/Sub)
+        env:
+          TENANT: ${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}
+          HERMES_CHAT_TRANSPORT: pubsub
+        run: bash scripts/provision_hermes_chat_app.sh | tee provision.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chat-app-setup-${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}
+          path: |
+            out/chat-app/CHAT_APP_SETUP.md
+            out/tenants/${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}/CHAT_APP_SETUP.md
+            provision.log
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          TENANT="${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}"
+          {
+            echo "## Hermes Chat app — tenant \`${TENANT}\`"
+            echo
+            python3 -c "import json,sys; h=json.loads(sys.argv[1]); print(f\"**Projekti:** \`{h['gcp_project']}\`  **App:** {h['chat_app_display_name']}\")" "${HUB}"
+            echo
+            echo "**Console (yksi Save):** $(python3 -c "import json,sys; print(json.loads(sys.argv[1])['console_url'])" "${HUB}")"
+            echo
+            cat "out/chat-app/CHAT_APP_SETUP.md" 2>/dev/null || cat "out/tenants/${TENANT}/CHAT_APP_SETUP.md"
+          } >> "$GITHUB_STEP_SUMMARY"

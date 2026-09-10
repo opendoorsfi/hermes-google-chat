@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "config" / "tenants" / "registry.json"
 TENANTS_DIR = ROOT / "config" / "tenants"
 BASE_PORT = 8081
+DEFAULT_GCP_PROJECT = "od-kansiot"
 
 
 def load_registry() -> dict:
@@ -110,11 +111,14 @@ def tenant_manifest(
         "PORT": port,
         "PATH_PREFIX": prefix,
         "ROLE": "personal",
-        "CHAT_APP_DISPLAY_NAME": display_name(tid),
+        "CHAT_APP_DISPLAY_NAME": registry_chat_app_name(reg),
         "GOOGLE_CHAT_ALLOWED_USERS": email.strip().lower(),
         "FUNNEL_BASE_URL": str(host_cfg.get("funnel_base_url", "")).rstrip("/"),
         "HOST": str(host_cfg.get("host_id", "")),
         "PLATFORM": platform,
+        "CHAT_TRANSPORT": str(reg.get("default_chat_transport", "pubsub")).strip(),
+        "CHAT_PUBSUB_TOPIC": str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip(),
+        "CHAT_PUBSUB_SUB": str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip(),
     }
     return manifest
 
@@ -147,7 +151,7 @@ def iter_user_entries(reg: dict | None = None) -> list[tuple[str, str | None]]:
 
 def generate_all() -> list[dict[str, str]]:
     reg = load_registry()
-    gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+    gcp_project = registry_gcp_project(reg)
     manifests = []
     for i, (email, host_id) in enumerate(iter_user_entries(reg)):
         host_cfg = resolve_host(reg, host_id)
@@ -159,6 +163,69 @@ def generate_all() -> list[dict[str, str]]:
 
 def list_tenant_ids() -> list[str]:
     return [m["TENANT"] for m in generate_all()]
+
+
+def registry_gcp_project(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    return str(reg.get("gcp_project", DEFAULT_GCP_PROJECT)).strip() or DEFAULT_GCP_PROJECT
+
+
+def registry_deploy_sa(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    explicit = str(reg.get("github_deploy_sa", "")).strip()
+    if explicit:
+        return explicit
+    return f"github-hermes-deploy@{registry_gcp_project(reg)}.iam.gserviceaccount.com"
+
+
+def registry_wif_provider(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    return str(reg.get("wif_provider", "")).strip()
+
+
+def chat_transport(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    return str(reg.get("default_chat_transport", "pubsub")).strip() or "pubsub"
+
+
+def all_allowed_users(reg: dict | None = None) -> list[str]:
+    reg = reg or load_registry()
+    return [email for email, _ in iter_user_entries(reg)]
+
+
+def registry_chat_app_name(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    override = str(reg.get("chat_app_display_name", "")).strip()
+    if override:
+        return override
+    users = all_allowed_users(reg)
+    if not users:
+        return "Hermes"
+    gcp_project = registry_gcp_project(reg)
+    host_cfg = resolve_host(reg, iter_user_entries(reg)[0][1])
+    return tenant_manifest(users[0], 0, host_cfg, gcp_project, reg)["CHAT_APP_DISPLAY_NAME"]
+
+
+def hub_meta() -> dict[str, str]:
+    reg = load_registry()
+    users = all_allowed_users(reg)
+    transport = chat_transport(reg)
+    primary = email_to_tenant_id(users[0]) if users else "ipad"
+    project = registry_gcp_project(reg)
+    return {
+        "transport": transport,
+        "primary_tenant": primary,
+        "gcp_project": project,
+        "github_deploy_sa": registry_deploy_sa(reg),
+        "wif_provider": registry_wif_provider(reg),
+        "chat_app_display_name": registry_chat_app_name(reg),
+        "allowed_users": ", ".join(users),
+        "pubsub_topic": str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip(),
+        "pubsub_sub": str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip(),
+        "console_url": (
+            f"https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project={project}"
+        ),
+    }
 
 
 def add_user(email: str, host: str | None = None) -> dict[str, str]:
@@ -176,7 +243,7 @@ def add_user(email: str, host: str | None = None) -> dict[str, str]:
     idx = next(i for i, (e, _) in enumerate(entries) if e == email)
     host_id = host or entries[idx][1]
     host_cfg = resolve_host(reg, host_id)
-    gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+    gcp_project = registry_gcp_project(reg)
     m = tenant_manifest(email, idx, host_cfg, gcp_project, reg)
     write_env(m)
     return m
@@ -193,7 +260,7 @@ def chat_events_url(manifest: dict[str, str]) -> str:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|summary|host-users HOST",
+            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|github-env|summary|host-users HOST",
             file=sys.stderr,
         )
         return 1
@@ -213,6 +280,16 @@ def main() -> int:
         m = add_user(sys.argv[2], host)
         print(json.dumps(m, indent=2))
         return 0
+    if cmd == "hub-json":
+        print(json.dumps(hub_meta()))
+        return 0
+    if cmd == "github-env":
+        meta = hub_meta()
+        print(f"GCP_PROJECT={meta['gcp_project']}")
+        print(f"GCP_DEPLOY_SA_EMAIL={meta['github_deploy_sa']}")
+        if meta.get("wif_provider"):
+            print(f"GCP_WIF_PROVIDER={meta['wif_provider']}")
+        return 0
     if cmd == "matrix-json":
         ids = list_tenant_ids()
         print(json.dumps({"tenant": ids}))
@@ -223,7 +300,7 @@ def main() -> int:
             return 1
         host_id = sys.argv[2]
         reg = load_registry()
-        gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+        gcp_project = registry_gcp_project(reg)
         users = []
         for i, (email, entry_host) in enumerate(iter_user_entries(reg)):
             if entry_host == host_id:
@@ -233,7 +310,7 @@ def main() -> int:
         return 0
     if cmd == "summary":
         reg = load_registry()
-        gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+        gcp_project = registry_gcp_project(reg)
         for i, (email, host_id) in enumerate(iter_user_entries(reg)):
             host_cfg = resolve_host(reg, host_id)
             m = tenant_manifest(email, i, host_cfg, gcp_project, reg)

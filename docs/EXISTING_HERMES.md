@@ -20,18 +20,18 @@ käytä sitä vain jos et halua ajaa gatewayä muualla.
 
 Hermes yhdistää **ulos** GCP:hen — sama malli kuin Telegram/Slack. Ei tarvita Cloud Runia eikä OpenRouter-avainta Secret Manageriin.
 
-### 1. GCP-infra (jo olemassa projektissa `od-azuracast-sync`)
+### 1. GCP-infra (projekti `od-kansiot`)
 
 - Topic: `hermes-chat-events`
 - Subscription: `hermes-chat-events-sub`
-- SA: `hermes-chat-bot@od-azuracast-sync.iam.gserviceaccount.com`
+- SA: `hermes-chat-bot@od-kansiot.iam.gserviceaccount.com`
 
 Aja tarvittaessa: `bash infra/setup_gcp.sh` (`HERMES_CHAT_TRANSPORT=pubsub`).
 
 ### 2. Chat API Console
 
 - Connection: **Cloud Pub/Sub**
-- Topic: `projects/od-azuracast-sync/topics/hermes-chat-events`
+- Topic: `projects/od-kansiot/topics/hermes-chat-events`
 - Topic IAM: publisher = Chat-appin Connection settings -sivulta näkyvä SA  
   (ei välttämättä `chat-api-push@…` — org voi vaatia `gcp-sa-gsuiteaddons`-tiliä)
 
@@ -101,7 +101,7 @@ Remote pitää olla **saavutettavissa Cloud Runista** (julkinen IP, Tailscale su
 ### Cloud Run relay (ei LLM-avainta)
 
 ```bash
-export GCP_PROJECT=od-azuracast-sync
+export GCP_PROJECT=od-kansiot
 export GCP_REGION=europe-north1
 export HERMES_GATEWAY_MODE=proxy
 export GATEWAY_PROXY_URL=https://hermes.sinun-palvelin.fi:8642
@@ -119,7 +119,7 @@ Jos siirryt täysin olemassa olevaan Hermekseen:
 
 ```bash
 gcloud run services delete hermes-gateway \
-  --project=od-azuracast-sync --region=europe-north1 --quiet
+  --project=od-kansiot --region=europe-north1 --quiet
 ```
 
 Secret `hermes-llm-api-key` ei ole enää tarpeen proxy/pubsub-direct -poluissa.

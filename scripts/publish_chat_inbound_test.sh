@@ -4,7 +4,7 @@
 #   EMAIL=ipad@info.opendoors.fi TEXT="Hei" bash scripts/publish_chat_inbound_test.sh
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
 TOPIC="${TOPIC:-hermes-chat-events}"
 EMAIL="${EMAIL:-ipad@info.opendoors.fi}"
 TEXT="${TEXT:-Hei — testi Hermes-pubsubista $(date -u +%H:%M:%S)}"

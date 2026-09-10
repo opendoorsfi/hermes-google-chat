@@ -12,16 +12,15 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-  GCP_DEPLOY_SA_EMAIL: github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com
-
 jobs:
   inspect:
     name: GCP Chat infra
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
 
       - uses: google-github-actions/auth@v2
         with:
@@ -35,8 +34,9 @@ jobs:
 
       - name: Job summary
         run: |
+          GCP="$(python3 scripts/chat_registry.py hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])")"
           {
-            echo "## Chat GCP inspect — od-azuracast-sync"
+            echo "## Chat GCP inspect — ${GCP}"
             echo '```'
             cat inspect-output.txt
             echo '```'

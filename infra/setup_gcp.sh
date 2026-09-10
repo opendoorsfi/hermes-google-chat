@@ -2,7 +2,7 @@
 # One-shot GCP infra for hermes-google-chat.
 #
 # Default: HTTP Chat inbound (ei Pub/Sub IAM / org-admin).
-#   export GCP_PROJECT=od-azuracast-sync
+#   export GCP_PROJECT=od-kansiot
 #   export GCP_REGION=europe-north1
 #   bash infra/setup_gcp.sh
 #

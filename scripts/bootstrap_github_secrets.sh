@@ -12,11 +12,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HERMES_GITHUB_REPO="${HERMES_GITHUB_REPO:-opendoorsfi/hermes-google-chat}"
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
 
-# Lähteet: docs/CREATE_REPO.md, docs/GITHUB_SECRETS.md
-GCP_WIF_PROVIDER="${GCP_WIF_PROVIDER:-projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider}"
-GCP_DEPLOY_SA_EMAIL="${GCP_DEPLOY_SA_EMAIL:-github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com}"
+# Lähteet: docs/GITHUB_SECRETS.md, scripts/setup_github_wif.sh
+GCP_WIF_PROVIDER="${GCP_WIF_PROVIDER:-}"
+GCP_DEPLOY_SA_EMAIL="${GCP_DEPLOY_SA_EMAIL:-github-hermes-deploy@od-kansiot.iam.gserviceaccount.com}"
 
 RUN_WIF="${RUN_WIF:-auto}"   # auto | yes | no
 GRANT_TENANT_IAM="${GRANT_TENANT_IAM:-}"  # pilkulla: hermes-alice,hermes-team
