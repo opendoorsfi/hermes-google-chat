@@ -1,0 +1,43 @@
+name: Send Chat test
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Workspace-email (DM)"
+        required: false
+        default: "ipad@info.opendoors.fi"
+        type: string
+      text:
+        description: "Testiviestin teksti"
+        required: false
+        default: "Hei — Hermes testi GitHub Actionsista"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  GCP_DEPLOY_SA_EMAIL: github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com
+
+jobs:
+  publish:
+    name: Pub/Sub → Hermes → Chat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Publish inbound Chat event
+        env:
+          EMAIL: ${{ inputs.email }}
+          TEXT: ${{ inputs.text }}
+        run: bash scripts/publish_chat_inbound_test.sh
