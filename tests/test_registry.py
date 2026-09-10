@@ -30,9 +30,13 @@ def test_ipad_email_mapping() -> None:
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
     assert m["GCP_PROJECT"] == "hermes-ipad"
     assert m["PORT"] == "8081"
+    assert m["CHAT_APP_DISPLAY_NAME"] == "Hermes (Ipad)"
     assert "/ipad/api/platforms/google_chat/events" in (
         f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
     )
+    env_path = ROOT / "config" / "tenants" / "ipad.env"
+    assert env_path.is_file()
+    assert 'CHAT_APP_DISPLAY_NAME="Hermes (Ipad)"' in env_path.read_text(encoding="utf-8")
 
 
 def test_sync_workflow_exists() -> None:

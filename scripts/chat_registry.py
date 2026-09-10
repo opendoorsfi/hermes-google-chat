@@ -56,10 +56,18 @@ def tenant_manifest(email: str, index: int, funnel_base_url: str) -> dict[str, s
     }
 
 
+def env_value(value: str) -> str:
+    """Shell-safe .env value (spaces, parentheses, etc.)."""
+    if re.search(r'[\s#"$`!()\\]', value):
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return value
+
+
 def write_env(manifest: dict[str, str]) -> Path:
     TENANTS_DIR.mkdir(parents=True, exist_ok=True)
     path = TENANTS_DIR / f"{manifest['TENANT']}.env"
-    lines = [f"{k}={v}" for k, v in manifest.items()]
+    lines = [f"{k}={env_value(v)}" for k, v in manifest.items()]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
