@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
+GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
 TOPIC="${TOPIC:-hermes-chat-events}"
 SUB="${SUB:-hermes-chat-events-sub}"
 TRANSPORT="pubsub"

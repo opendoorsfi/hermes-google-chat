@@ -29,18 +29,18 @@ def test_ipad_email_mapping() -> None:
     m = json.loads(out.stdout)
     assert m["TENANT"] == "ipad"
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
-    assert m["GCP_PROJECT"] == "od-azuracast-sync"
+    assert m["GCP_PROJECT"] == "od-kansiot"
     assert m["SA_NAME"] == "hermes-chat-bot"
     assert m["PORT"] == "8081"
     assert m["HOST"] == "work-h"
     assert m["PLATFORM"] == "linux"
-    assert m["CHAT_APP_DISPLAY_NAME"] == "Hermes (Ipad)"
+    assert m["CHAT_APP_DISPLAY_NAME"] == "hermes-chat"
     assert "/ipad/api/platforms/google_chat/events" in (
         f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
     )
     env_path = ROOT / "config" / "tenants" / "ipad.env"
     assert env_path.is_file()
-    assert 'CHAT_APP_DISPLAY_NAME="Hermes (Ipad)"' in env_path.read_text(encoding="utf-8")
+    assert "CHAT_APP_DISPLAY_NAME=hermes-chat" in env_path.read_text(encoding="utf-8")
 
 
 def test_natalia_mac_mapping() -> None:
@@ -84,6 +84,20 @@ def test_sync_workflow_exists() -> None:
     assert "sync_mac_from_registry.sh" in wf
     assert "ensure_tenant_sa.sh" in wf or "hermes-chat-bot-sa.json" in wf
     assert 'SKIP_SA_KEY: "1"' not in wf
+
+
+def test_hub_json_od_kansiot() -> None:
+    out = subprocess.run(
+        ["python3", "scripts/chat_registry.py", "hub-json"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    h = json.loads(out.stdout)
+    assert h["gcp_project"] == "od-kansiot"
+    assert h["chat_app_display_name"] == "hermes-chat"
+    assert "ipad@info.opendoors.fi" in h["allowed_users"]
 
 
 def test_ensure_tenant_sa_script_exists() -> None:

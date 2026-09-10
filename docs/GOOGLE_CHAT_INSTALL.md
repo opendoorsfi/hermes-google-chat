@@ -31,8 +31,8 @@ Skripti asettaa (arvot repossa [CREATE_REPO.md](CREATE_REPO.md)):
 
 | Secret | Arvo |
 |--------|------|
-| `GCP_WIF_PROVIDER` | `projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
-| `GCP_DEPLOY_SA_EMAIL` | `github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com` |
+| `GCP_WIF_PROVIDER` | ks. `scripts/setup_github_wif.sh` (projekti `od-kansiot`) |
+| `GCP_DEPLOY_SA_EMAIL` | `github-hermes-deploy@od-kansiot.iam.gserviceaccount.com` |
 
 Jos `gcloud` on kirjautuneena, skripti ajaa myös [setup_github_wif.sh](../scripts/setup_github_wif.sh).
 

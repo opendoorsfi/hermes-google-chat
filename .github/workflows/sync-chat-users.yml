@@ -3,7 +3,8 @@ name: Sync Chat users
 # Tavoite: käyttäjä antaa vain sähköpostin → agentti commitoi registry.json → tämä workflow.
 # GCP + (valinnainen) Hermes-host self-hosted runner.
 #
-# WIF-arvot docs/CREATE_REPO.md (ei salaisuuksia). Secrets ylikirjoittavat jos asetettu.
+# GCP-projekti: config/tenants/registry.json → od-kansiot (hermes-chat).
+# WIF: secrets GCP_WIF_PROVIDER + GCP_DEPLOY_SA_EMAIL (ks. scripts/setup_github_wif.sh).
 
 on:
   push:
@@ -24,10 +25,6 @@ permissions:
 concurrency:
   group: sync-chat-users
   cancel-in-progress: true
-
-env:
-  GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-  GCP_DEPLOY_SA_EMAIL: github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com
 
 jobs:
   register:
@@ -94,6 +91,9 @@ jobs:
 
       - run: python3 scripts/chat_registry.py generate-all
 
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
+
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
@@ -130,6 +130,9 @@ jobs:
 
       - name: Generate manifest
         run: python3 scripts/chat_registry.py generate-all
+
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
 
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v2
@@ -214,18 +217,20 @@ jobs:
         run: |
           HUB="$(python3 scripts/chat_registry.py hub-json)"
           APP_NAME="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['chat_app_display_name'])" "${HUB}")"
+          GCP="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['gcp_project'])" "${HUB}")"
+          CONSOLE="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['console_url'])" "${HUB}")"
+          TOPIC="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['pubsub_topic'])" "${HUB}")"
           {
             echo "## Google Chat — synkattu GitHub Hubista"
             echo
             python3 scripts/chat_registry.py summary
-            echo "### Hermes-botti (EI moderointi)"
-            echo "- GCP: \`od-azuracast-sync\`"
-            echo "- App: **${APP_NAME}**"
+            echo "### Hermes-botti (projekti \`${GCP}\`, ei AzuraCast/moderointi)"
+            echo "- App: **${APP_NAME}** (yksi app, monta käyttäjää)"
             if [[ "${{ needs.register.outputs.chat_transport }}" == "pubsub" ]]; then
               echo "- Pub/Sub + SA: luotu automaattisesti (job **Hermes Chat app**)"
-              echo "- **Console-Save (kerran):** [Chat API Configuration](https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-azuracast-sync)"
+              echo "- **Console-Save (kerran):** [Chat API Configuration](${CONSOLE})"
               echo "  - App name → **${APP_NAME}**"
-              echo "  - Connection → Pub/Sub → \`projects/od-azuracast-sync/topics/hermes-chat-events\`"
+              echo "  - Connection → Pub/Sub → \`projects/${GCP}/topics/${TOPIC}\`"
               echo "  - Visibility → registryn käyttäjät"
             fi
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then

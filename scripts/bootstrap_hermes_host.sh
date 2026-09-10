@@ -64,7 +64,7 @@ curl -sS -o /dev/null -w "POST /ipad → HTTP %{http_code}\n" \
 echo ""
 echo "==> Seuraavaksi (jos gateway ei käynnisty):"
 echo "  1. SA JSON → /home/hermes-ipad/.hermes/secrets/google-chat-sa.json"
-echo "     GCP: IAM → hermes-chat-ipad@od-azuracast-sync.iam.gserviceaccount.com → Keys"
+echo "     GCP: hermes-chat-bot@od-kansiot.iam.gserviceaccount.com (Secret Manager / ensure_tenant_sa.sh)"
 echo "  2. LLM-avain → /home/hermes-ipad/.hermes/.env (OPENROUTER_API_KEY=...)"
 echo "  3. sudo systemctl restart hermes-gateway@hermes-ipad"
 echo "  4. Google Chat API Console → HTTP URL:"

@@ -1,7 +1,9 @@
 {
-  "gcp_project": "od-azuracast-sync",
+  "gcp_project": "od-kansiot",
+  "github_deploy_sa": "github-hermes-deploy@od-kansiot.iam.gserviceaccount.com",
+  "wif_provider": "",
   "shared_chat_sa": "hermes-chat-bot",
-  "chat_app_display_name": "Hermes (Ipad)",
+  "chat_app_display_name": "hermes-chat",
   "default_chat_transport": "pubsub",
   "chat_pubsub_topic": "hermes-chat-events",
   "chat_pubsub_subscription": "hermes-chat-events-sub",
@@ -30,5 +32,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 12
+  "sync_version": 13
 }

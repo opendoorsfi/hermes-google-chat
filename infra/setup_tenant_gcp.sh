@@ -74,7 +74,7 @@ elif gcloud iam service-accounts create "${SA_NAME}" \
   echo "OK: created ${SA_EMAIL}"
 else
   echo "VAROITUS: SA ${SA_EMAIL} puuttuu eikä luonti onnistunut (deploy-SA IAM?)."
-  echo "  Anna github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com:"
+  echo "  Anna github-hermes-deploy@od-kansiot.iam.gserviceaccount.com:"
   echo "    roles/serviceusage.serviceUsageAdmin + roles/iam.serviceAccountAdmin"
   sed 's/^/  /' /tmp/hermes_sa_create.err || true
   rm -f /tmp/hermes_sa_create.err
@@ -96,7 +96,7 @@ elif [[ ! -f "${KEY_PATH}" ]]; then
     echo "OK: ${KEY_PATH}"
   else
     echo "VAROITUS: SA-avain epäonnistui (deploy-SA IAM / org policy)."
-    echo "  Anna github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com:"
+    echo "  Anna github-hermes-deploy@od-kansiot.iam.gserviceaccount.com:"
     echo "    roles/iam.serviceAccountKeyAdmin (tai serviceAccountAdmin)"
     sed 's/^/  /' /tmp/hermes_tenant_key.err || true
     rm -f /tmp/hermes_tenant_key.err

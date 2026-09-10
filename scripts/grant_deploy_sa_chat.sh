@@ -3,8 +3,8 @@
 #   bash scripts/grant_deploy_sa_chat.sh
 set -euo pipefail
 
-PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
-DEPLOY_SA="${GCP_DEPLOY_SA_EMAIL:-github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com}"
+PROJECT="${GCP_PROJECT:-od-kansiot}"
+DEPLOY_SA="${GCP_DEPLOY_SA_EMAIL:-github-hermes-deploy@od-kansiot.iam.gserviceaccount.com}"
 
 echo "==> Grant deploy SA Chat automation IAM on ${PROJECT}"
 echo "    ${DEPLOY_SA}"
