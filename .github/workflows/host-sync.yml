@@ -1,0 +1,37 @@
+name: Hermes host sync
+
+# Self-hosted runner work-h / Mac (label: hermes-host).
+# Asenna: repo Settings → Actions → Runners → New → labels hermes-host, self-hosted
+
+on:
+  workflow_dispatch:
+
+jobs:
+  host:
+    name: Sync gateway + Funnel
+    runs-on: [self-hosted, hermes-host]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync Hermes host (Linux or macOS)
+        run: |
+          if [[ "$(uname -s)" == "Darwin" ]]; then
+            bash scripts/sync_mac_from_registry.sh
+          else
+            sudo bash scripts/sync_host_from_registry.sh
+          fi
+
+      - name: Smoke test local gateway
+        run: |
+          if [[ "$(uname -s)" == "Darwin" ]]; then
+            PORT=8642
+          else
+            # shellcheck source=scripts/lib/tenant.sh
+            source scripts/lib/tenant.sh
+            load_tenant ipad
+            PORT="${PORT:-8081}"
+          fi
+          CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${PORT}/api/platforms/google_chat/events" \
+            -H 'Content-Type: application/json' -d '{}' 2>/dev/null || echo 000)"
+          echo "local gateway HTTP ${CODE} (401/403 = OK)"

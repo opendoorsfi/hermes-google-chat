@@ -107,6 +107,9 @@ jobs:
           HERMES_CHAT_TRANSPORT: pubsub
         run: bash scripts/provision_hermes_chat_app.sh | tee provision.log
 
+      - name: Ensure Chat SA in Secret Manager
+        run: bash scripts/ensure_chat_sa_secret.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: chat-app-setup
@@ -142,15 +145,21 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify GCP project
+      - name: Verify GCP access
         env:
           TENANT: ${{ matrix.tenant }}
         run: |
           # shellcheck source=scripts/lib/tenant.sh
           source scripts/lib/tenant.sh
           load_tenant "${TENANT}"
-          gcloud projects describe "${GCP_PROJECT}" >/dev/null
-          echo "OK: project ${GCP_PROJECT}"
+          TOPIC="${CHAT_PUBSUB_TOPIC:-hermes-chat-events}"
+          if [[ "${CHAT_TRANSPORT:-pubsub}" == "pubsub" ]]; then
+            gcloud pubsub topics describe "${TOPIC}" --project="${GCP_PROJECT}" >/dev/null
+            echo "OK: Pub/Sub topic ${TOPIC} (${GCP_PROJECT})"
+          else
+            gcloud services list --project="${GCP_PROJECT}" --enabled --limit=1 >/dev/null
+            echo "OK: project ${GCP_PROJECT}"
+          fi
 
       - name: setup_tenant_gcp.sh (HTTP tenants only)
         if: needs.register.outputs.chat_transport != 'pubsub'
@@ -159,17 +168,10 @@ jobs:
           ALLOW_PLACEHOLDER_FUNNEL: ${{ needs.register.outputs.funnel_ok != 'true' && '1' || '0' }}
         run: bash infra/setup_tenant_gcp.sh
 
-      - name: SA JSON from Secret Manager (shared hermes-chat-bot)
+      - name: SA JSON (Secret Manager or create key)
         env:
           TENANT: ${{ matrix.tenant }}
-        run: |
-          OUT="out/tenants/${TENANT}/hermes-chat-bot-sa.json"
-          mkdir -p "$(dirname "${OUT}")"
-          if bash scripts/fetch_sa_to_path.sh "${OUT}"; then
-            echo "OK: SA JSON haettu Secret Managerista"
-          elif [[ -f "${OUT}" && ! -s "${OUT}" ]]; then
-            rm -f "${OUT}"
-          fi
+        run: bash scripts/ensure_chat_sa_artifact.sh "${{ matrix.tenant }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -180,30 +182,6 @@ jobs:
             out/tenants/${{ matrix.tenant }}/hermes-chat-bot-sa.json
           if-no-files-found: ignore
           retention-days: 7
-
-  host:
-    name: Hermes host sync
-    needs: [register, gcp]
-    runs-on: [self-hosted, hermes-host]
-    timeout-minutes: 3
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download GCP tenant artifacts (SA JSON)
-        uses: actions/download-artifact@v4
-        with:
-          pattern: tenant-*-gcp
-          merge-multiple: true
-          path: .
-
-      - name: Sync Hermes host (Linux or macOS)
-        run: |
-          if [[ "$(uname -s)" == "Darwin" ]]; then
-            bash scripts/sync_mac_from_registry.sh
-          else
-            sudo bash scripts/sync_host_from_registry.sh
-          fi
 
   notify:
     name: User instructions
@@ -236,5 +214,9 @@ jobs:
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then
               echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
             fi
-            echo "> **Host:** Self-hosted runner \`hermes-host\` — host-sync kun runner on asennettu."
+            echo "### Host (gateway + Funnel) — aja host-koneella:"
+            echo '```bash'
+            echo "curl -fsSL https://raw.githubusercontent.com/opendoorsfi/hermes-google-chat/main/scripts/start_hermes_now.sh | bash"
+            echo '```'
+            echo "Tai asenna runner → Actions → **Hermes host sync** → Run workflow."
           } >> "$GITHUB_STEP_SUMMARY"

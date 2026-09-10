@@ -78,11 +78,12 @@ def test_natalia_mac_mapping() -> None:
 
 def test_sync_workflow_exists() -> None:
     wf = (ROOT / ".github" / "workflows" / "sync-chat-users.yml").read_text(encoding="utf-8")
+    host_wf = (ROOT / ".github" / "workflows" / "host-sync.yml").read_text(encoding="utf-8")
     assert "registry.json" in wf
     assert "workflow_dispatch" in wf
-    assert "self-hosted" in wf
-    assert "sync_mac_from_registry.sh" in wf
-    assert "ensure_tenant_sa.sh" in wf or "hermes-chat-bot-sa.json" in wf
+    assert "self-hosted" in host_wf
+    assert "sync_mac_from_registry.sh" in host_wf
+    assert "ensure_chat_sa_artifact.sh" in wf or "hermes-chat-bot-sa.json" in wf
     assert 'SKIP_SA_KEY: "1"' not in wf
 
 
