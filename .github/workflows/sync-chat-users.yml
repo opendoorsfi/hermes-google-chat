@@ -80,6 +80,7 @@ jobs:
     needs: register
     if: needs.register.outputs.matrix != '{"tenant":[]}'
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.register.outputs.matrix) }}
