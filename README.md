@@ -19,10 +19,10 @@ Google Chat → Tailscale Funnel (HTTPS)
 
 ## Aloitus
 
-1. [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) — pääohje
-2. [docs/STANDALONE_REPO.md](docs/STANDALONE_REPO.md) — oma repo vs moderate
-3. Kopioi `config/tenants/alice.env.example` → `alice.env`
-4. `TENANT=alice bash scripts/provision_tenant.sh`
+1. **[docs/GOOGLE_CHAT_INSTALL.md](docs/GOOGLE_CHAT_INSTALL.md)** — asenna Google Chat (secrets → GCP → host → Chat Console)
+2. [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) — multi-tenant arkkitehtuuri
+3. GitHub secrets (kerran, admin): `bash scripts/bootstrap_github_secrets.sh`
+4. Kopioi `config/tenants/alice.env.example` → `alice.env` → `TENANT=alice bash scripts/provision_tenant.sh`
 
 ## GitHub Actions
 
