@@ -127,6 +127,7 @@ jobs:
     name: Hermes host sync
     needs: [register, gcp]
     runs-on: [self-hosted, hermes-host]
+    timeout-minutes: 3
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -136,8 +137,8 @@ jobs:
 
   notify:
     name: User instructions
-    needs: [register, gcp, host]
-    if: always()
+    needs: [register, gcp]
+    if: always() && needs.register.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -151,7 +152,5 @@ jobs:
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then
               echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
             fi
-            if [[ "${{ needs.host.result }}" != "success" ]]; then
-              echo "> **Host:** Self-hosted runner \`hermes-host\` puuttuu tai sync epäonnistui."
-            fi
+            echo "> **Host:** Self-hosted runner \`hermes-host\` — host-sync ajetaan kun runner on asennettu."
           } >> "$GITHUB_STEP_SUMMARY"
