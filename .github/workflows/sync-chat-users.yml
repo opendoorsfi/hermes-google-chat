@@ -114,6 +114,18 @@ jobs:
           ALLOW_PLACEHOLDER_FUNNEL: ${{ needs.register.outputs.funnel_ok != 'true' && '1' || '0' }}
         run: bash infra/setup_tenant_gcp.sh
 
+      - name: SA JSON from Secret Manager (shared hermes-chat-bot)
+        env:
+          TENANT: ${{ matrix.tenant }}
+        run: |
+          OUT="out/tenants/${TENANT}/hermes-chat-bot-sa.json"
+          mkdir -p "$(dirname "${OUT}")"
+          if bash scripts/fetch_sa_to_path.sh "${OUT}"; then
+            echo "OK: SA JSON haettu Secret Managerista"
+          elif [[ -f "${OUT}" && ! -s "${OUT}" ]]; then
+            rm -f "${OUT}"
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: tenant-${{ matrix.tenant }}-gcp

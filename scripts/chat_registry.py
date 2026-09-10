@@ -81,12 +81,21 @@ def path_prefix(tenant_id: str, path_prefix_mode: str) -> str:
     return f"/{tenant_id}"
 
 
+def sa_name_for_tenant(reg: dict, tenant_id: str) -> str:
+    shared = reg.get("shared_chat_sa", "").strip()
+    if shared:
+        return shared
+    return f"hermes-chat-{tenant_id}"
+
+
 def tenant_manifest(
     email: str,
     index: int,
     host_cfg: dict[str, Any],
     gcp_project: str,
+    reg: dict | None = None,
 ) -> dict[str, str]:
+    reg = reg or load_registry()
     tid = email_to_tenant_id(email)
     prefix = path_prefix(tid, host_cfg.get("path_prefix_mode", "tenant"))
     gateway_port = host_cfg.get("gateway_port")
@@ -96,7 +105,7 @@ def tenant_manifest(
     manifest: dict[str, str] = {
         "TENANT": tid,
         "GCP_PROJECT": gcp_project,
-        "SA_NAME": f"hermes-chat-{tid}",
+        "SA_NAME": sa_name_for_tenant(reg, tid),
         "LINUX_USER": linux_user,
         "PORT": port,
         "PATH_PREFIX": prefix,
@@ -142,7 +151,7 @@ def generate_all() -> list[dict[str, str]]:
     manifests = []
     for i, (email, host_id) in enumerate(iter_user_entries(reg)):
         host_cfg = resolve_host(reg, host_id)
-        m = tenant_manifest(email, i, host_cfg, gcp_project)
+        m = tenant_manifest(email, i, host_cfg, gcp_project, reg)
         write_env(m)
         manifests.append(m)
     return manifests
@@ -168,7 +177,7 @@ def add_user(email: str, host: str | None = None) -> dict[str, str]:
     host_id = host or entries[idx][1]
     host_cfg = resolve_host(reg, host_id)
     gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
-    m = tenant_manifest(email, idx, host_cfg, gcp_project)
+    m = tenant_manifest(email, idx, host_cfg, gcp_project, reg)
     write_env(m)
     return m
 
@@ -219,7 +228,7 @@ def main() -> int:
         for i, (email, entry_host) in enumerate(iter_user_entries(reg)):
             if entry_host == host_id:
                 host_cfg = resolve_host(reg, host_id)
-                users.append(tenant_manifest(email, i, host_cfg, gcp_project))
+                users.append(tenant_manifest(email, i, host_cfg, gcp_project, reg))
         print(json.dumps(users, indent=2))
         return 0
     if cmd == "summary":
@@ -227,7 +236,7 @@ def main() -> int:
         gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
         for i, (email, host_id) in enumerate(iter_user_entries(reg)):
             host_cfg = resolve_host(reg, host_id)
-            m = tenant_manifest(email, i, host_cfg, gcp_project)
+            m = tenant_manifest(email, i, host_cfg, gcp_project, reg)
             events = chat_events_url(m)
             print(f"## {m['CHAT_APP_DISPLAY_NAME']} (`{m['TENANT']}`)")
             print(f"- Email: `{m['GOOGLE_CHAT_ALLOWED_USERS']}`")

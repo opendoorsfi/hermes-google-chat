@@ -14,7 +14,6 @@ source "${ROOT}/scripts/lib/tenant.sh"
 load_tenant "${TENANT}"
 
 SA_EMAIL="${SA_NAME}@${GCP_PROJECT}.iam.gserviceaccount.com"
-SECRET_NAME="hermes-chat-sa-${TENANT}"
 KEY_SRC="${ROOT}/out/tenants/${TENANT}/hermes-chat-bot-sa.json"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -38,9 +37,15 @@ if [[ -f "${DEST}" && -s "${DEST}" ]]; then
   echo "OK: SA jo olemassa ${DEST}"
   exit 0
 fi
+[[ -f "${DEST}" && ! -s "${DEST}" ]] && rm -f "${DEST}"
 
 if [[ -f "${KEY_SRC}" && -s "${KEY_SRC}" ]]; then
   install_key "${KEY_SRC}"
+  exit 0
+fi
+[[ -f "${KEY_SRC}" && ! -s "${KEY_SRC}" ]] && rm -f "${KEY_SRC}"
+
+if bash "${ROOT}/scripts/fetch_sa_to_path.sh" "${DEST}" "${GCP_PROJECT}" 2>/dev/null; then
   exit 0
 fi
 
@@ -59,26 +64,10 @@ fetch_sa_from_github() {
     return 1
   fi
   local found
-  found="$(find "${tmpdir}" -type f -name 'hermes-chat-bot-sa.json' 2>/dev/null | head -1)"
+  found="$(find "${tmpdir}" -type f -name 'hermes-chat-bot-sa.json' -size +0c 2>/dev/null | head -1)"
   rm -rf "${tmpdir}"
   [[ -n "${found}" && -s "${found}" ]] || return 1
   install_key "${found}"
-}
-
-fetch_sa_from_secret_manager() {
-  command -v gcloud >/dev/null 2>&1 || return 1
-  local tmp
-  tmp="$(mktemp)"
-  if gcloud secrets versions access latest \
-    --secret="${SECRET_NAME}" --project="${GCP_PROJECT}" > "${tmp}" 2>/dev/null; then
-    if [[ -s "${tmp}" ]]; then
-      install_key "${tmp}"
-      rm -f "${tmp}"
-      return 0
-    fi
-  fi
-  rm -f "${tmp}"
-  return 1
 }
 
 create_sa_key_gcloud() {
@@ -99,7 +88,6 @@ create_sa_key_gcloud() {
 }
 
 if fetch_sa_from_github; then exit 0; fi
-if fetch_sa_from_secret_manager; then exit 0; fi
 if create_sa_key_gcloud; then exit 0; fi
 
 echo "VIRHE: SA JSON ei saatu automaattisesti tenantille ${TENANT}" >&2

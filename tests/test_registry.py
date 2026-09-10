@@ -30,7 +30,7 @@ def test_ipad_email_mapping() -> None:
     assert m["TENANT"] == "ipad"
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
     assert m["GCP_PROJECT"] == "od-azuracast-sync"
-    assert m["SA_NAME"] == "hermes-chat-ipad"
+    assert m["SA_NAME"] == "hermes-chat-bot"
     assert m["PORT"] == "8081"
     assert m["HOST"] == "work-h"
     assert m["PLATFORM"] == "linux"
@@ -56,6 +56,7 @@ def test_natalia_mac_mapping() -> None:
     assert env_path.is_file()
     text = env_path.read_text(encoding="utf-8")
     assert "TENANT=natalia" in text
+    assert "SA_NAME=hermes-chat-bot" in text
     assert "HOST=natalia-mac" in text
     assert "PLATFORM=darwin" in text
     assert "PORT=8642" in text

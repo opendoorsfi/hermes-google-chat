@@ -13,7 +13,10 @@ TENANT="$(python3 -c "import re; e='${EMAIL_LOWER}'.split('@')[0]; print(re.sub(
 GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
 PORT="${HERMES_CHAT_PORT:-8642}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 HERMES_HOME="${HERMES_HOME:-${HOME}/.hermes}"
+
+python3 "${REPO_ROOT}/scripts/chat_registry.py" generate-all >/dev/null 2>&1 || true
 ENV_FILE="${HERMES_HOME}/.env"
 MARKER="# --- Google Chat mac bootstrap ---"
 
@@ -66,9 +69,10 @@ tailscale funnel --bg "${PORT}" 2>/dev/null || tailscale funnel "${PORT}" || {
 }
 tailscale funnel status 2>/dev/null || true
 
-echo "==> SA JSON (automaattinen — ei Console-latausta)"
+echo "==> SA JSON (automaattinen — Secret Manager / gh / gcloud, ei Console-latausta)"
+export TENANT
 bash "${SCRIPT_DIR}/ensure_tenant_sa.sh" "${TENANT}" || {
-  echo "VAROITUS: SA ei vielä valmis — yritä uudelleen kun Sync Chat users on ajettu"
+  echo "VAROITUS: SA ei vielä valmis — tarvitsee gcloud auth login Macilla (luo avain automaattisesti)"
 }
 
 SA_CREDS=""
