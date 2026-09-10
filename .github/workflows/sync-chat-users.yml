@@ -23,7 +23,7 @@ permissions:
 
 concurrency:
   group: sync-chat-users
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
