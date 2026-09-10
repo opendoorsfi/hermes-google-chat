@@ -43,6 +43,6 @@ jobs:
 
       - name: Publish inbound Chat event
         env:
-          EMAIL: ${{ inputs.email }}
-          TEXT: ${{ inputs.text }}
+          EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.email || 'ipad@info.opendoors.fi' }}
+          TEXT: ${{ github.event_name == 'workflow_dispatch' && inputs.text || 'Hei ipad — Hermes yhteydessä (GitHub testi)' }}
         run: bash scripts/publish_chat_inbound_test.sh
