@@ -9,8 +9,10 @@ set -euo pipefail
 
 EMAIL="${1:-natalia@info.opendoors.fi}"
 EMAIL_LOWER="$(printf '%s' "${EMAIL}" | tr '[:upper:]' '[:lower:]')"
+TENANT="$(python3 -c "import re; e='${EMAIL_LOWER}'.split('@')[0]; print(re.sub(r'[^a-z0-9]+','-',e.lower()).strip('-'))")"
 GCP_PROJECT="${GCP_PROJECT:-od-azuracast-sync}"
 PORT="${HERMES_CHAT_PORT:-8642}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HERMES_HOME="${HERMES_HOME:-${HOME}/.hermes}"
 ENV_FILE="${HERMES_HOME}/.env"
 MARKER="# --- Google Chat mac bootstrap ---"
@@ -64,6 +66,16 @@ tailscale funnel --bg "${PORT}" 2>/dev/null || tailscale funnel "${PORT}" || {
 }
 tailscale funnel status 2>/dev/null || true
 
+echo "==> SA JSON (automaattinen — ei Console-latausta)"
+bash "${SCRIPT_DIR}/ensure_tenant_sa.sh" "${TENANT}" || {
+  echo "VAROITUS: SA ei vielä valmis — yritä uudelleen kun Sync Chat users on ajettu"
+}
+
+SA_CREDS=""
+if [[ -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
+  SA_CREDS="GOOGLE_APPLICATION_CREDENTIALS=${HERMES_HOME}/secrets/google-chat-sa.json"
+fi
+
 if [[ -f "${ENV_FILE}" ]] && grep -qF "${MARKER}" "${ENV_FILE}"; then
   echo "==> Päivitetään olemassa oleva Chat-lohko .env:ssä"
   # shellcheck disable=SC2016
@@ -90,8 +102,7 @@ GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com
 HERMES_CHAT_TRANSPORT=http
 API_SERVER_HOST=0.0.0.0
 API_SERVER_PORT=${PORT}
-# GOOGLE_APPLICATION_CREDENTIALS=${HERMES_HOME}/secrets/google-chat-sa.json
-# SA: hermes-chat-$(echo "${EMAIL}" | cut -d@ -f1 | tr '[:upper:]' '[:lower:]')@${GCP_PROJECT}.iam.gserviceaccount.com
+${SA_CREDS}
 # --- end Google Chat mac bootstrap ---
 EOF
 chmod 600 "${ENV_FILE}" 2>/dev/null || true
@@ -123,8 +134,7 @@ echo ""
 echo "==> Google Chat: Find apps → Hermes → Message → Hei"
 if [[ ! -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
   echo ""
-  echo "VAROITUS: SA JSON puuttuu — luo GCP Consolesta ja tallenna:"
-  echo "  ${HERMES_HOME}/secrets/google-chat-sa.json"
+  echo "VAROITUS: outbound-viestit vaativat SA:n — workflow/gh/gcloud hoitaa automaattisesti"
 fi
 echo ""
 echo "OK — mac bootstrap valmis."

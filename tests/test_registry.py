@@ -81,3 +81,13 @@ def test_sync_workflow_exists() -> None:
     assert "workflow_dispatch" in wf
     assert "self-hosted" in wf
     assert "sync_mac_from_registry.sh" in wf
+    assert "ensure_tenant_sa.sh" in wf or "hermes-chat-bot-sa.json" in wf
+    assert 'SKIP_SA_KEY: "1"' not in wf
+
+
+def test_ensure_tenant_sa_script_exists() -> None:
+    path = ROOT / "scripts" / "ensure_tenant_sa.sh"
+    assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "Secret Manager" in text or "secrets versions access" in text
+    assert "gh run download" in text

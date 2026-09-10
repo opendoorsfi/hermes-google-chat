@@ -85,22 +85,45 @@ mkdir -p "${OUT_DIR}"
 
 KEY_PATH="${OUT_DIR}/hermes-chat-bot-sa.json"
 if [[ "${SKIP_SA_KEY:-0}" == "1" ]]; then
-  echo "==> SKIP_SA_KEY=1 — SA JSON -avainta ei luoda. Luo avain Consolesta:"
-  echo "  IAM → Service Accounts → ${SA_EMAIL} → Keys → Add key → JSON"
-  echo "  Tallenna hostille: /home/<linux_user>/.hermes/secrets/google-chat-sa.json"
+  echo "==> SKIP_SA_KEY=1 — SA JSON -avainta ei luoda CI:ssä."
+  echo "  Host hakee avaimen: scripts/ensure_tenant_sa.sh (gh artifact / Secret Manager / gcloud)"
 elif [[ ! -f "${KEY_PATH}" ]]; then
-  echo "==> Yritetään SA JSON -avain (tarvitaan host-VM:llä outbound Chat REST)"
+  echo "==> Yritetään SA JSON -avain (host hakee automaattisesti — ei Console-latausta)"
   if gcloud iam service-accounts keys create "${KEY_PATH}" \
     --iam-account="${SA_EMAIL}" \
     --project="${GCP_PROJECT}" 2>/tmp/hermes_tenant_key.err; then
     chmod 600 "${KEY_PATH}"
     echo "OK: ${KEY_PATH}"
   else
-    echo "VAROITUS: SA-avain epäonnistui (org policy?). Luo avain Consolesta:"
-    echo "  IAM → Service Accounts → ${SA_EMAIL} → Keys → Add key → JSON"
-    echo "  Tallenna hostille: /home/<linux_user>/.hermes/secrets/google-chat-sa.json"
+    echo "VAROITUS: SA-avain epäonnistui (deploy-SA IAM / org policy)."
+    echo "  Anna github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com:"
+    echo "    roles/iam.serviceAccountKeyAdmin (tai serviceAccountAdmin)"
     sed 's/^/  /' /tmp/hermes_tenant_key.err || true
     rm -f /tmp/hermes_tenant_key.err
+  fi
+fi
+
+if [[ -f "${KEY_PATH}" && -s "${KEY_PATH}" && "${TENANT:-}" != "" ]]; then
+  SECRET_NAME="hermes-chat-sa-${TENANT}"
+  echo "==> Secret Manager: ${SECRET_NAME}"
+  if ! gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT}" &>/dev/null; then
+    gcloud secrets create "${SECRET_NAME}" \
+      --replication-policy=automatic \
+      --project="${GCP_PROJECT}" 2>/tmp/hermes_secret_create.err || {
+      echo "VAROITUS: Secret Manager -luonti epäonnistui"
+      sed 's/^/  /' /tmp/hermes_secret_create.err || true
+      rm -f /tmp/hermes_secret_create.err
+    }
+  fi
+  if gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT}" &>/dev/null; then
+    gcloud secrets versions add "${SECRET_NAME}" \
+      --data-file="${KEY_PATH}" \
+      --project="${GCP_PROJECT}" 2>/tmp/hermes_secret_add.err && \
+      echo "OK: ${SECRET_NAME} (host: gcloud secrets versions access / gh artifact)" || {
+      echo "VAROITUS: Secret Manager -versio epäonnistui"
+      sed 's/^/  /' /tmp/hermes_secret_add.err || true
+      rm -f /tmp/hermes_secret_add.err
+    }
   fi
 fi
 

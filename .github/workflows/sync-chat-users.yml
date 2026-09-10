@@ -111,7 +111,6 @@ jobs:
       - name: setup_tenant_gcp.sh
         env:
           TENANT: ${{ matrix.tenant }}
-          SKIP_SA_KEY: "1"
           ALLOW_PLACEHOLDER_FUNNEL: ${{ needs.register.outputs.funnel_ok != 'true' && '1' || '0' }}
         run: bash infra/setup_tenant_gcp.sh
 
@@ -121,7 +120,9 @@ jobs:
           path: |
             out/tenants/${{ matrix.tenant }}/gcp.env
             out/tenants/${{ matrix.tenant }}/CHAT_CONSOLE_CHECKLIST.md
-          retention-days: 30
+            out/tenants/${{ matrix.tenant }}/hermes-chat-bot-sa.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   host:
     name: Hermes host sync
@@ -131,6 +132,13 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download GCP tenant artifacts (SA JSON)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tenant-*-gcp
+          merge-multiple: true
+          path: .
 
       - name: Sync Hermes host (Linux or macOS)
         run: |

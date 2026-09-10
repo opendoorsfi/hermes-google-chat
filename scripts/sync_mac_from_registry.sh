@@ -58,6 +58,9 @@ if [[ ${#EMAILS[@]} -eq 0 ]]; then
 fi
 
 for email in "${EMAILS[@]}"; do
+  tid="$(python3 -c "import re; e='${email}'.split('@')[0]; print(re.sub(r'[^a-z0-9]+','-',e.lower()).strip('-'))")"
+  echo "==> SA: ${tid}"
+  bash "${ROOT}/scripts/ensure_tenant_sa.sh" "${tid}" || true
   echo "==> bootstrap: ${email}"
   bash "${ROOT}/scripts/bootstrap_hermes_mac.sh" "${email}"
 done

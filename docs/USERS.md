@@ -31,6 +31,8 @@ Chat HTTP URL (root, ei `/natalia/`-prefixiä):
 
 Runner Macilla: aseta label `hermes-host` + `self-hosted`, env `HERMES_REGISTRY_HOST=natalia-mac`.
 
+**SA JSON:** ei manuaalista latausta — GitHub Actions luo avaimen, tallentaa Secret Manageriin + artefaktiin; bootstrap/`ensure_tenant_sa.sh` hakee sen (`gh`, `gcloud`, tai host-runner).
+
 ## Infra (kerran, ei käyttäjäkohtaista)
 
 | Asia | Kuka | Missä |
