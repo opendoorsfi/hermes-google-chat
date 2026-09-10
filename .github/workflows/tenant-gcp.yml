@@ -1,0 +1,103 @@
+name: Setup tenant GCP
+
+# Manuaalinen: luo/päivittää yhden tenantin GCP-resurssit (Chat API, SA).
+# Ei kosketa host-VM:ään (systemd, Caddy) — se tehdään palvelimella.
+#
+# Secrets: GCP_WIF_PROVIDER, GCP_DEPLOY_SA_EMAIL (ks. docs/GITHUB_SECRETS.md).
+# Manifestit config/tenants/<id>.env ovat gitignoressa → repossa on vain *.env.example,
+# joten oikea Funnel-URL annetaan inputtina.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: "Tenant id (config/tenants/<id>.env[.example])"
+        required: true
+        type: string
+      funnel_base_url:
+        description: "Tailscale Funnel base URL, esim. https://hermes-host.tail1234.ts.net (ylikirjoittaa manifestin)"
+        required: false
+        type: string
+      gcp_project:
+        description: "GCP project id (ylikirjoittaa manifestin)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tenant-gcp-${{ inputs.tenant }}
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: setup_tenant_gcp.sh (${{ inputs.tenant }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tenant id
+        env:
+          TENANT: ${{ inputs.tenant }}
+        run: |
+          if [[ ! "${TENANT}" =~ ^[a-z0-9][a-z0-9-]{0,30}$ ]]; then
+            echo "VIRHE: tenant id ei kelpaa: ${TENANT}"
+            exit 1
+          fi
+          if [[ ! -f "config/tenants/${TENANT}.env" && ! -f "config/tenants/${TENANT}.env.example" ]]; then
+            echo "VIRHE: config/tenants/${TENANT}.env(.example) puuttuu"
+            exit 1
+          fi
+
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run infra/setup_tenant_gcp.sh
+        env:
+          TENANT: ${{ inputs.tenant }}
+          FUNNEL_BASE_URL: ${{ inputs.funnel_base_url }}
+          GCP_PROJECT: ${{ inputs.gcp_project }}
+          # SA-avainta ei luoda Actionsissa (ei artefakteihin) — luodaan Consolesta hostille.
+          SKIP_SA_KEY: "1"
+        run: bash infra/setup_tenant_gcp.sh
+
+      - name: Ensure no private keys in artefacts
+        env:
+          TENANT: ${{ inputs.tenant }}
+        run: |
+          if find "out/tenants/${TENANT}" -name '*.json' | grep -q .; then
+            echo "VIRHE: out/tenants/${TENANT} sisältää JSON-avaimia — ei ladata."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-${{ inputs.tenant }}
+          path: |
+            out/tenants/${{ inputs.tenant }}/gcp.env
+            out/tenants/${{ inputs.tenant }}/CHAT_CONSOLE_CHECKLIST.md
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Summary
+        env:
+          TENANT: ${{ inputs.tenant }}
+        run: |
+          {
+            echo "## Tenant \`${TENANT}\` — GCP valmis"
+            echo
+            echo '```'
+            cat "out/tenants/${TENANT}/gcp.env"
+            echo '```'
+            echo
+            cat "out/tenants/${TENANT}/CHAT_CONSOLE_CHECKLIST.md"
+            echo
+            echo "Seuraavaksi hostilla: \`sudo bash scripts/install_hermes_host.sh --tenant ${TENANT}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

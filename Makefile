@@ -1,27 +1,28 @@
-.PHONY: test lint build validate local-check
+.PHONY: test lint build validate local-check standalone-check
+
+SHELL_SCRIPTS := infra/setup_gcp.sh infra/setup_tenant_gcp.sh \
+	deploy/cloudrun/deploy.sh deploy/entrypoint.sh deploy/host/tailscale-funnel.sh \
+	scripts/lib/tenant.sh $(wildcard scripts/*.sh)
 
 test:
 	python3 -m pytest tests/ -v
 
 lint:
-	@bash -n infra/setup_gcp.sh
-	@bash -n infra/setup_tenant_gcp.sh
-	@bash -n deploy/cloudrun/deploy.sh
-	@bash -n deploy/entrypoint.sh
-	@bash -n deploy/host/tailscale-funnel.sh
-	@bash -n scripts/lib/tenant.sh
-	@bash -n scripts/print_tenant_env.sh
-	@bash -n scripts/verify_tenant.sh
-	@bash -n scripts/install_hermes_host.sh
-	@bash -n scripts/provision_tenant.sh
-	@bash -n scripts/*.sh
-	@echo "shellcheck ok (bash -n)"
+	@for s in $(SHELL_SCRIPTS); do bash -n "$$s" || exit 1; done
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck -S warning -x $(SHELL_SCRIPTS) && echo "shellcheck ok"; \
+	else \
+		echo "shellcheck ei asennettu — vain bash -n (asenna: apt-get install shellcheck)"; \
+	fi
 
 build:
 	docker build -t hermes-google-chat:local -f deploy/Dockerfile .
 
 validate: test lint
 	@echo "validate ok"
+
+standalone-check:
+	@bash scripts/export_standalone_check.sh
 
 local-check: validate
 	@test -f deploy/Dockerfile
