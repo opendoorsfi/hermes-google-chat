@@ -164,6 +164,45 @@ def list_tenant_ids() -> list[str]:
     return [m["TENANT"] for m in generate_all()]
 
 
+def chat_transport(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    return str(reg.get("default_chat_transport", "pubsub")).strip() or "pubsub"
+
+
+def all_allowed_users(reg: dict | None = None) -> list[str]:
+    reg = reg or load_registry()
+    return [email for email, _ in iter_user_entries(reg)]
+
+
+def registry_chat_app_name(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    override = str(reg.get("chat_app_display_name", "")).strip()
+    if override:
+        return override
+    users = all_allowed_users(reg)
+    if not users:
+        return "Hermes"
+    gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+    host_cfg = resolve_host(reg, iter_user_entries(reg)[0][1])
+    return tenant_manifest(users[0], 0, host_cfg, gcp_project, reg)["CHAT_APP_DISPLAY_NAME"]
+
+
+def hub_meta() -> dict[str, str]:
+    reg = load_registry()
+    users = all_allowed_users(reg)
+    transport = chat_transport(reg)
+    primary = email_to_tenant_id(users[0]) if users else "ipad"
+    return {
+        "transport": transport,
+        "primary_tenant": primary,
+        "gcp_project": reg.get("gcp_project", "od-azuracast-sync").strip(),
+        "chat_app_display_name": registry_chat_app_name(reg),
+        "allowed_users": ", ".join(users),
+        "pubsub_topic": str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip(),
+        "pubsub_sub": str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip(),
+    }
+
+
 def add_user(email: str, host: str | None = None) -> dict[str, str]:
     reg = load_registry()
     email = email.strip().lower()
@@ -196,7 +235,7 @@ def chat_events_url(manifest: dict[str, str]) -> str:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|summary|host-users HOST",
+            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|summary|host-users HOST",
             file=sys.stderr,
         )
         return 1
@@ -215,6 +254,9 @@ def main() -> int:
         host = sys.argv[3] if len(sys.argv) > 3 else None
         m = add_user(sys.argv[2], host)
         print(json.dumps(m, indent=2))
+        return 0
+    if cmd == "hub-json":
+        print(json.dumps(hub_meta()))
         return 0
     if cmd == "matrix-json":
         ids = list_tenant_ids()

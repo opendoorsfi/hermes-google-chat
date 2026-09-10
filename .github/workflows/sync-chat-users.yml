@@ -36,6 +36,8 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       funnel_ok: ${{ steps.check.outputs.funnel_ok }}
+      chat_transport: ${{ steps.hub.outputs.chat_transport }}
+      primary_tenant: ${{ steps.hub.outputs.primary_tenant }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +77,45 @@ jobs:
           MATRIX="$(python3 scripts/chat_registry.py matrix-json)"
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
+      - id: hub
+        run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          echo "chat_transport=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['transport'])" "${HUB}")" >> "$GITHUB_OUTPUT"
+          echo "primary_tenant=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['primary_tenant'])" "${HUB}")" >> "$GITHUB_OUTPUT"
+
+  chat-app:
+    name: Hermes Chat app (Pub/Sub + GCP)
+    needs: register
+    if: needs.register.outputs.chat_transport == 'pubsub'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: python3 scripts/chat_registry.py generate-all
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Provision Hermes Chat app (automatic from hub)
+        env:
+          TENANT: ${{ needs.register.outputs.primary_tenant }}
+          HERMES_CHAT_TRANSPORT: pubsub
+        run: bash scripts/provision_hermes_chat_app.sh | tee provision.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chat-app-setup
+          path: |
+            out/chat-app/CHAT_APP_SETUP.md
+            out/tenants/${{ needs.register.outputs.primary_tenant }}/CHAT_APP_SETUP.md
+            provision.log
+          retention-days: 90
+
   gcp:
     name: GCP (${{ matrix.tenant }})
     needs: register
@@ -108,7 +149,8 @@ jobs:
           gcloud projects describe "${GCP_PROJECT}" >/dev/null
           echo "OK: project ${GCP_PROJECT}"
 
-      - name: setup_tenant_gcp.sh
+      - name: setup_tenant_gcp.sh (HTTP tenants only)
+        if: needs.register.outputs.chat_transport != 'pubsub'
         env:
           TENANT: ${{ matrix.tenant }}
           ALLOW_PLACEHOLDER_FUNNEL: ${{ needs.register.outputs.funnel_ok != 'true' && '1' || '0' }}
@@ -162,7 +204,7 @@ jobs:
 
   notify:
     name: User instructions
-    needs: [register, gcp]
+    needs: [register, chat-app, gcp]
     if: always() && needs.register.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -170,12 +212,24 @@ jobs:
 
       - name: Chat install summary
         run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          APP_NAME="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['chat_app_display_name'])" "${HUB}")"
           {
-            echo "## Google Chat — käyttäjät synkattu"
+            echo "## Google Chat — synkattu GitHub Hubista"
             echo
             python3 scripts/chat_registry.py summary
+            echo "### Hermes-botti (EI moderointi)"
+            echo "- GCP: \`od-azuracast-sync\`"
+            echo "- App: **${APP_NAME}**"
+            if [[ "${{ needs.register.outputs.chat_transport }}" == "pubsub" ]]; then
+              echo "- Pub/Sub + SA: luotu automaattisesti (job **Hermes Chat app**)"
+              echo "- **Console-Save (kerran):** [Chat API Configuration](https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-azuracast-sync)"
+              echo "  - App name → **${APP_NAME}**"
+              echo "  - Connection → Pub/Sub → \`projects/od-azuracast-sync/topics/hermes-chat-events\`"
+              echo "  - Visibility → registryn käyttäjät"
+            fi
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then
               echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
             fi
-            echo "> **Host:** Self-hosted runner \`hermes-host\` — host-sync ajetaan kun runner on asennettu."
+            echo "> **Host:** Self-hosted runner \`hermes-host\` — host-sync kun runner on asennettu."
           } >> "$GITHUB_STEP_SUMMARY"

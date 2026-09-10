@@ -14,7 +14,9 @@ for role in \
   roles/iam.serviceAccountAdmin \
   roles/iam.serviceAccountKeyAdmin \
   roles/secretmanager.secretAccessor \
-  roles/secretmanager.admin; do
+  roles/secretmanager.admin \
+  roles/pubsub.admin \
+  roles/chat.owner; do
   echo "  + ${role}"
   gcloud projects add-iam-policy-binding "${PROJECT}" \
     --member="serviceAccount:${DEPLOY_SA}" \

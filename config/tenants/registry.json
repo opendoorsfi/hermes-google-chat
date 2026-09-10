@@ -1,6 +1,7 @@
 {
   "gcp_project": "od-azuracast-sync",
   "shared_chat_sa": "hermes-chat-bot",
+  "chat_app_display_name": "Hermes (Ipad)",
   "default_chat_transport": "pubsub",
   "chat_pubsub_topic": "hermes-chat-events",
   "chat_pubsub_subscription": "hermes-chat-events-sub",

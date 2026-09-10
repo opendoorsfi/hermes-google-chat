@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # GCP-resurssit + Chat Console -ohje (Pub/Sub tai HTTP).
-# Chat-appin Configuration-sivu vaatii yhden Console-Save (Google ei tarjoa API:ta).
+# GitHub Actions (Sync Chat users) kutsuu tätä automaattisesti.
+# Chat-appin Configuration-Save vaatii yhden Console-klikin (Google ei tarjoa julkista API:ta).
 #
 #   TENANT=ipad bash scripts/provision_hermes_chat_app.sh
 #   HERMES_CHAT_TRANSPORT=pubsub bash scripts/provision_hermes_chat_app.sh
@@ -10,18 +11,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/tenant.sh
 source "${ROOT}/scripts/lib/tenant.sh"
 
-TENANT="${TENANT:-ipad}"
+HUB_JSON="$(python3 "${ROOT}/scripts/chat_registry.py" hub-json)"
+TENANT="${TENANT:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['primary_tenant'])" "${HUB_JSON}")}"
 load_tenant "${TENANT}"
 
-TRANSPORT="${HERMES_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-pubsub}}"
+TRANSPORT="${HERMES_CHAT_TRANSPORT:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['transport'])" "${HUB_JSON}")}"
 GCP_PROJECT="${GCP_PROJECT:?}"
-TOPIC="${CHAT_PUBSUB_TOPIC:-hermes-chat-events}"
+APP_NAME="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['chat_app_display_name'])" "${HUB_JSON}")"
+ALLOWED_USERS="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['allowed_users'])" "${HUB_JSON}")"
+TOPIC="${CHAT_PUBSUB_TOPIC:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['pubsub_topic'])" "${HUB_JSON}")}"
+SUB="${CHAT_PUBSUB_SUB:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['pubsub_sub'])" "${HUB_JSON}")}"
 TOPIC_FULL="projects/${GCP_PROJECT}/topics/${TOPIC}"
-SUB="${CHAT_PUBSUB_SUB:-hermes-chat-events-sub}"
-OUT_DIR="${ROOT}/out/tenants/${TENANT}"
+OUT_DIR="${ROOT}/out/chat-app"
 mkdir -p "${OUT_DIR}"
 
-echo "==> Hermes Chat app provision: tenant=${TENANT} project=${GCP_PROJECT} transport=${TRANSPORT}"
+echo "==> Hermes Chat app provision: project=${GCP_PROJECT} transport=${TRANSPORT} app=${APP_NAME}"
 
 if [[ "${TRANSPORT}" == "pubsub" ]]; then
   export GCP_PROJECT HERMES_CHAT_TRANSPORT=pubsub TOPIC SUB
@@ -37,46 +41,37 @@ fi
 CONSOLE_URL="https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=${GCP_PROJECT}"
 
 cat > "${OUT_DIR}/CHAT_APP_SETUP.md" <<EOF
-# Luo Hermes Chat -app (kerran) — ${CHAT_APP_DISPLAY_NAME}
+# Hermes Chat -app — ${APP_NAME}
 
-> **Ei moderointi-bottia.** Moderointi on **toisessa GCP-projektissa**.
-> Tämä app luodaan projektiin **\`${GCP_PROJECT}\`**.
+> **Ei moderointi-bottia.** Moderointi on **toisessa GCP-projektissa** (\`opendoorsfi/moderate\`).
+> Tämä app kuuluu projektiin **\`${GCP_PROJECT}\`**.
 
-## 1. Avaa oikea projekti
+GitHub Actions loi Pub/Sub + SA + IAM. **Console-Save** (kerran) rekisteröi botin Chatissa.
+
+## Console (kopioi arvot → Save)
 
 ${CONSOLE_URL}
 
-Varmista yläpalkissa: **${GCP_PROJECT}** (Open Doors AzuraCast Sync).
-
-## 2. Configuration → täytä ja Save
-
 | Kenttä | Arvo |
 |--------|------|
-| App status | **Live** (tai Testing + \`${GOOGLE_CHAT_ALLOWED_USERS}\` testaajana) |
-| App name | **${CHAT_APP_DISPLAY_NAME}** |
-| Description | Hermes Agent — ${TENANT} |
+| App status | **Live** |
+| App name | **${APP_NAME}** |
+| Description | Hermes Agent — Open Doors |
 | Functionality | ☑ Receive 1:1 messages · ☑ Join spaces and group conversations |
 ${CONNECTION_ROWS}
-| Visibility | **Specific people and groups** → \`${GOOGLE_CHAT_ALLOWED_USERS}\` |
+| Visibility | **Specific people and groups** → ${ALLOWED_USERS} |
 
-**Save**
-
-## 3. Chatissa (ipad@)
+## Chatissa
 
 1. https://chat.google.com/
-2. **+** → **Find apps** → hae **${CHAT_APP_DISPLAY_NAME}**
+2. **+** → **Find apps** → **${APP_NAME}**
 3. **Message** → \`Hei\`
-
-## 4. Gateway
-
-Hermes hostilla \`GOOGLE_CHAT_ALLOWED_USERS\` sisältää \`${GOOGLE_CHAT_ALLOWED_USERS}\`.
-Pub/Sub: subscription \`${SUB}\` → gateway Connected.
-
----
-GitHub Actions loi GCP-infra (SA, topic, IAM). Console-Save on ainoa manuaalinen askel.
 EOF
+
+cp "${OUT_DIR}/CHAT_APP_SETUP.md" "${ROOT}/out/tenants/${TENANT}/CHAT_APP_SETUP.md" 2>/dev/null || \
+  mkdir -p "${ROOT}/out/tenants/${TENANT}" && cp "${OUT_DIR}/CHAT_APP_SETUP.md" "${ROOT}/out/tenants/${TENANT}/CHAT_APP_SETUP.md"
 
 echo ""
 echo "OK — GCP infra + ${OUT_DIR}/CHAT_APP_SETUP.md"
-echo "Console (kopioi arvot): ${CONSOLE_URL}"
+echo "Console: ${CONSOLE_URL}"
 cat "${OUT_DIR}/CHAT_APP_SETUP.md"

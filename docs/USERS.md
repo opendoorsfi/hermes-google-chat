@@ -13,11 +13,21 @@
 
 Jos Chatissa näkyy vain moderointi-botti, etsit väärää appia. Hermes-botti luodaan projektiin **`od-azuracast-sync`** nimellä **Hermes (Ipad)**.
 
-GitHub luo Pub/Sub-infra + ohjeen. **Yksi Console-Save** on pakollinen (Google ei tarjoa API:ta appin rekisteröintiin Chatissa):
+## Lisää botti GitHub Hubista (automaattinen)
+
+1. Avaa **Actions** → **Sync Chat users** → **Run workflow**
+2. Syötä sähköposti: `ipad@info.opendoors.fi` → **Run workflow**
+3. Hub tekee automaattisesti:
+   - registry + manifestit
+   - Pub/Sub topic/sub + IAM
+   - service account + Secret Manager
+   - artefaktin `CHAT_APP_SETUP.md` (tarkat Console-arvot)
+
+**Yksi Console-Save** on pakollinen (Google ei tarjoa API:ta appin rekisteröintiin Chatissa):
 
 https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-azuracast-sync
 
-Workflow **Create Hermes Chat app (GCP)** (`create-chat-app.yml`) tuottaa tarkat arvot artefaktiin `CHAT_APP_SETUP.md`.
+Kopioi arvot workflow-summarystä tai artefaktista → **Save** → Chatissa **Find apps** → **Hermes (Ipad)**.
 
 ## Miten se toimii
 
