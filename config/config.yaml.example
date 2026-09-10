@@ -1,0 +1,9 @@
+# Hermes gateway config — copied to HERMES_HOME/config.yaml on first boot
+
+platforms:
+  google_chat:
+    typing_status_text: "Hermes ajattelee…"
+    typing_indicator: true
+
+# Default profile for Open Doors (refine when kanava-ux specs available)
+default_profile: opendoors

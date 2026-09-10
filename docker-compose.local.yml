@@ -1,0 +1,29 @@
+# Local dev: Hermes gateway with mounted config (requires valid GCP Pub/Sub + SA).
+#
+#   cp config/hermes.env.example .env.local   # edit values
+#   docker compose -f docker-compose.local.yml up --build
+#
+# Without GCP credentials the gateway will fail config validation — use scripts/local_validate.sh for CI.
+
+services:
+  hermes-gateway:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: hermes-google-chat:local
+    restart: unless-stopped
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      HERMES_HOME: /opt/data
+      GOOGLE_CHAT_MAX_MESSAGES: "1"
+    volumes:
+      - hermes-data:/opt/data
+      # Mount SA JSON when testing locally:
+      # - ./secrets/google-chat-sa.json:/secrets/google-chat-sa.json:ro
+    ports:
+      - "8642:8642"
+
+volumes:
+  hermes-data:

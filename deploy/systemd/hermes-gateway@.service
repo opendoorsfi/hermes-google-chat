@@ -1,0 +1,26 @@
+[Unit]
+Description=Hermes Gateway (Google Chat tenant %i)
+After=network-online.target caddy-hermes.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/home/%i
+Environment=HERMES_HOME=/home/%i/.hermes
+EnvironmentFile=-/etc/hermes/tenants/%i.env
+# Instance name = LINUX_USER (e.g. hermes-alice)
+ExecStart=/usr/local/bin/hermes gateway run
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/%i/.hermes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
