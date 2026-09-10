@@ -49,6 +49,23 @@ if bash "${ROOT}/scripts/fetch_sa_to_path.sh" "${DEST}" "${GCP_PROJECT}" 2>/dev/
   exit 0
 fi
 
+create_sa_key_gcloud() {
+  command -v gcloud >/dev/null 2>&1 || return 1
+  if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${GCP_PROJECT}" >/dev/null 2>&1; then
+    return 1
+  fi
+  if gcloud iam service-accounts keys create "${DEST}" \
+    --iam-account="${SA_EMAIL}" \
+    --project="${GCP_PROJECT}" 2>/tmp/hermes_ensure_sa.err; then
+    chmod 600 "${DEST}"
+    echo "OK: luotiin SA-avain gcloudilla → ${DEST}"
+    return 0
+  fi
+  sed 's/^/  /' /tmp/hermes_ensure_sa.err 2>/dev/null || true
+  rm -f /tmp/hermes_ensure_sa.err
+  return 1
+}
+
 fetch_sa_from_github() {
   command -v gh >/dev/null 2>&1 || return 1
   gh auth status >/dev/null 2>&1 || return 1
@@ -70,25 +87,13 @@ fetch_sa_from_github() {
   install_key "${found}"
 }
 
-create_sa_key_gcloud() {
-  command -v gcloud >/dev/null 2>&1 || return 1
-  if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${GCP_PROJECT}" >/dev/null 2>&1; then
-    return 1
-  fi
-  if gcloud iam service-accounts keys create "${DEST}" \
-    --iam-account="${SA_EMAIL}" \
-    --project="${GCP_PROJECT}" 2>/tmp/hermes_ensure_sa.err; then
-    chmod 600 "${DEST}"
-    echo "OK: luotiin SA-avain gcloudilla → ${DEST}"
-    return 0
-  fi
-  sed 's/^/  /' /tmp/hermes_ensure_sa.err 2>/dev/null || true
-  rm -f /tmp/hermes_ensure_sa.err
-  return 1
-}
-
-if fetch_sa_from_github; then exit 0; fi
-if create_sa_key_gcloud; then exit 0; fi
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if create_sa_key_gcloud; then exit 0; fi
+  if fetch_sa_from_github; then exit 0; fi
+else
+  if fetch_sa_from_github; then exit 0; fi
+  if create_sa_key_gcloud; then exit 0; fi
+fi
 
 echo "VIRHE: SA JSON ei saatu automaattisesti tenantille ${TENANT}" >&2
 echo "  Odota GitHub Sync Chat users -workflow (luo avaimen + Secret Manager)." >&2

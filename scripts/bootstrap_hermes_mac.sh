@@ -69,13 +69,16 @@ tailscale funnel --bg "${PORT}" 2>/dev/null || tailscale funnel "${PORT}" || {
 }
 tailscale funnel status 2>/dev/null || true
 
-echo "==> SA JSON (automaattinen — Secret Manager / gh / gcloud, ei Console-latausta)"
+echo "==> GCP credentials (automaattinen — ei Console-JSON-latausta)"
 export TENANT
-bash "${SCRIPT_DIR}/ensure_tenant_sa.sh" "${TENANT}" || {
-  echo "VAROITUS: SA ei vielä valmis — tarvitsee gcloud auth login Macilla (luo avain automaattisesti)"
-}
-
 SA_CREDS=""
+if gcloud auth application-default print-access-token >/dev/null 2>&1; then
+  echo "    ADC OK — gcloud application-default credentials"
+elif bash "${SCRIPT_DIR}/ensure_tenant_sa.sh" "${TENANT}"; then
+  true
+else
+  echo "VAROITUS: aja kerran: gcloud auth login && gcloud auth application-default login"
+fi
 if [[ -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
   SA_CREDS="GOOGLE_APPLICATION_CREDENTIALS=${HERMES_HOME}/secrets/google-chat-sa.json"
 fi

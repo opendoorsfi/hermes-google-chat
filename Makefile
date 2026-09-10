@@ -5,7 +5,8 @@ SHELL_SCRIPTS := infra/setup_gcp.sh infra/setup_tenant_gcp.sh \
 	scripts/lib/tenant.sh scripts/bootstrap_github_secrets.sh \
 	scripts/bootstrap_hermes_host.sh scripts/bootstrap_hermes_mac.sh \
 	scripts/ensure_tenant_sa.sh scripts/fetch_sa_to_path.sh \
-	scripts/sync_mac_from_registry.sh $(wildcard scripts/*.sh)
+	scripts/grant_deploy_sa_chat.sh scripts/sync_mac_from_registry.sh \
+	$(wildcard scripts/*.sh)
 
 test:
 	python3 -m pytest tests/ -v
