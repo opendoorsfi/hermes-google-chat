@@ -21,7 +21,8 @@ if ! command -v "${GCLOUD}" >/dev/null 2>&1; then
     "$HOME/google-cloud-sdk/bin/gcloud"; do
     if [[ -x "${candidate}" ]]; then
       GCLOUD="${candidate}"
-      export PATH="$(dirname "${candidate}"):${PATH}"
+      PATH="$(dirname "${candidate}"):${PATH}"
+      export PATH
       break
     fi
   done

@@ -9,7 +9,8 @@ PORT="${PORT:-8080}"
 mkdir -p "${HERMES_HOME}" /secrets
 
 if [[ -f /secrets/hermes-gateway-proxy-key ]]; then
-  export GATEWAY_PROXY_KEY="$(tr -d '\n' < /secrets/hermes-gateway-proxy-key)"
+  GATEWAY_PROXY_KEY="$(tr -d '\n' < /secrets/hermes-gateway-proxy-key)"
+  export GATEWAY_PROXY_KEY
 elif [[ -n "${API_SERVER_KEY:-}" ]]; then
   export GATEWAY_PROXY_KEY="${API_SERVER_KEY}"
 fi
@@ -22,7 +23,8 @@ if [[ -f /secrets/hermes-google-chat-sa-json ]]; then
 fi
 
 if [[ -f /secrets/hermes-api-server-key ]]; then
-  export API_SERVER_KEY="$(tr -d '\n' < /secrets/hermes-api-server-key)"
+  API_SERVER_KEY="$(tr -d '\n' < /secrets/hermes-api-server-key)"
+  export API_SERVER_KEY
 fi
 
 CHAT_HTTP_PATH="/api/platforms/google_chat/events"
