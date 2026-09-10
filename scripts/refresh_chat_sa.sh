@@ -62,3 +62,7 @@ if [[ "${DO_RESTART}" == "1" ]] || [[ "$(uname -s)" == "Darwin" ]]; then
   bash "${ROOT}/ensure_mac_gateway_running.sh" "${PORT}" --restart 2>/dev/null || hermes gateway restart 2>/dev/null || true
 fi
 echo "Testaa: uusi viesti Google Chatissa → botin pitäisi vastata."
+echo ""
+echo "Ilman gcloud/gh: lataa Actions-artefakti tenant-${TENANT}-gcp.zip ja aja:"
+echo "  bash scripts/ensure_tenant_sa.sh ${TENANT} --from-zip ~/Downloads/tenant-${TENANT}-gcp.zip"
+echo "  hermes gateway restart"

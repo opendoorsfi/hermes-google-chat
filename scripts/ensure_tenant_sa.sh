@@ -8,16 +8,27 @@
 set -euo pipefail
 
 FORCE=0
+FROM_FILE=""
+FROM_ZIP=""
 TENANT=""
-for arg in "$@"; do
-  case "${arg}" in
-    --force) FORCE=1 ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    --from-file) FROM_FILE="${2:?--from-file vaatii polun}"; shift 2 ;;
+    --from-zip) FROM_ZIP="${2:?--from-zip vaatii polun}"; shift 2 ;;
     -h|--help)
-      echo "Usage: ensure_tenant_sa.sh TENANT [--force]"
-      echo "  --force  hae/uusi SA-avain vaikka ~/.hermes/secrets/google-chat-sa.json on jo olemassa"
+      cat <<'EOF'
+Usage: ensure_tenant_sa.sh TENANT [--force] [--from-file PATH] [--from-zip PATH]
+
+Ilman gh/gcloud: lataa selaimella GitHub Actions -artefakti:
+  Actions → Sync Chat users → viimeisin vihreä ajo → Artifacts → tenant-natalia-gcp
+  bash scripts/ensure_tenant_sa.sh natalia --from-zip ~/Downloads/tenant-natalia-gcp.zip
+
+Älä lähetä SA JSON:ia chatissa — käytä artefaktia tai gcloud auth login.
+EOF
       exit 0
       ;;
-    *) [[ -z "${TENANT}" ]] && TENANT="${arg}" ;;
+    *) [[ -z "${TENANT}" ]] && TENANT="$1" || { echo "Tuntematon: $1" >&2; exit 1; }; shift ;;
   esac
 done
 [[ -n "${TENANT}" ]] || { echo "Usage: ensure_tenant_sa.sh TENANT [--force]" >&2; exit 1; }
@@ -54,13 +65,56 @@ print(f"OK: SA JSON {email}")
 PY
 }
 
+patch_hermes_env_sa() {
+  local env_file="${HERMES_HOME:-${HOME}/.hermes}/.env"
+  [[ -f "${env_file}" ]] || return 0
+  for key in GOOGLE_CHAT_SERVICE_ACCOUNT_JSON GOOGLE_APPLICATION_CREDENTIALS; do
+    if grep -q "^${key}=" "${env_file}" 2>/dev/null; then
+      python3 - "${env_file}" "${key}" "${DEST}" <<'PY'
+import pathlib, re, sys
+path, key, val = sys.argv[1], sys.argv[2], sys.argv[3]
+text = pathlib.Path(path).read_text(encoding="utf-8")
+text = re.sub(rf"^{key}=.*$", f"{key}={val}", text, count=1, flags=re.M)
+pathlib.Path(path).write_text(text, encoding="utf-8")
+PY
+    else
+      echo "${key}=${DEST}" >> "${env_file}"
+    fi
+  done
+  chmod 600 "${env_file}" 2>/dev/null || true
+}
+
 install_key() {
   local src="$1"
   verify_sa_json "${src}"
   cp "${src}" "${DEST}"
   chmod 600 "${DEST}"
+  patch_hermes_env_sa
   echo "OK: SA → ${DEST}"
+  if [[ "${RESTART_GATEWAY:-0}" == "1" ]] && command -v hermes >/dev/null 2>&1; then
+    hermes gateway restart 2>/dev/null && echo "OK: hermes gateway restart" || true
+  fi
 }
+
+if [[ -n "${FROM_FILE}" ]]; then
+  [[ -f "${FROM_FILE}" ]] || { echo "VIRHE: ${FROM_FILE} puuttuu" >&2; exit 1; }
+  install_key "${FROM_FILE}"
+  exit 0
+fi
+if [[ -n "${FROM_ZIP}" ]]; then
+  [[ -f "${FROM_ZIP}" ]] || { echo "VIRHE: ${FROM_ZIP} puuttuu" >&2; exit 1; }
+  tmpdir="$(mktemp -d)"
+  unzip -q -o "${FROM_ZIP}" -d "${tmpdir}" 2>/dev/null || { echo "VIRHE: zip avaus epäonnistui" >&2; rm -rf "${tmpdir}"; exit 1; }
+  found="$(find "${tmpdir}" -type f -name 'hermes-chat-bot-sa.json' -size +0c 2>/dev/null | head -1)"
+  if [[ -z "${found}" ]]; then
+    echo "VIRHE: hermes-chat-bot-sa.json ei löytynyt zipistä ${FROM_ZIP}" >&2
+    rm -rf "${tmpdir}"
+    exit 1
+  fi
+  install_key "${found}"
+  rm -rf "${tmpdir}"
+  exit 0
+fi
 
 if [[ -f "${DEST}" && -s "${DEST}" && "${FORCE}" == "0" ]]; then
   if verify_sa_json "${DEST}" 2>/dev/null; then
@@ -129,6 +183,13 @@ else
 fi
 
 echo "VIRHE: SA JSON ei saatu automaattisesti tenantille ${TENANT}" >&2
-echo "  Odota GitHub Sync Chat users -workflow (luo avaimen + Secret Manager)." >&2
-echo "  Macilla: gcloud auth login (luo avain suoraan) tai gh auth login (lataa artefaktista)." >&2
+echo "" >&2
+echo "Vaihtoehdot (älä lähetä avainta chatissa):" >&2
+echo "  1. gcloud auth login && bash scripts/refresh_chat_sa.sh ${TENANT} --restart" >&2
+echo "  2. gh auth login && bash scripts/ensure_tenant_sa.sh ${TENANT} --force" >&2
+echo "  3. Selain: github.com/opendoorsfi/hermes-google-chat → Actions → Sync Chat users" >&2
+echo "     → Artifacts → tenant-${TENANT}-gcp → lataa zip →" >&2
+echo "     bash scripts/ensure_tenant_sa.sh ${TENANT} --from-zip ~/Downloads/tenant-${TENANT}-gcp.zip" >&2
+echo "  4. GCP Console → hermes-chat-bot@od-kansiot → Keys → JSON →" >&2
+echo "     bash scripts/ensure_tenant_sa.sh ${TENANT} --from-file /polku/avain.json" >&2
 exit 1
