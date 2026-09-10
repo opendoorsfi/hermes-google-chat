@@ -7,7 +7,21 @@
 # GCP Secret Manager, gcloud keys create.
 set -euo pipefail
 
-TENANT="${1:?Usage: ensure_tenant_sa.sh TENANT}"
+FORCE=0
+TENANT=""
+for arg in "$@"; do
+  case "${arg}" in
+    --force) FORCE=1 ;;
+    -h|--help)
+      echo "Usage: ensure_tenant_sa.sh TENANT [--force]"
+      echo "  --force  hae/uusi SA-avain vaikka ~/.hermes/secrets/google-chat-sa.json on jo olemassa"
+      exit 0
+      ;;
+    *) [[ -z "${TENANT}" ]] && TENANT="${arg}" ;;
+  esac
+done
+[[ -n "${TENANT}" ]] || { echo "Usage: ensure_tenant_sa.sh TENANT [--force]" >&2; exit 1; }
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/tenant.sh
 source "${ROOT}/scripts/lib/tenant.sh"
@@ -26,16 +40,35 @@ DEST="${SECRETS_DIR}/google-chat-sa.json"
 mkdir -p "${SECRETS_DIR}"
 chmod 700 "${SECRETS_DIR}" 2>/dev/null || true
 
+verify_sa_json() {
+  local path="$1"
+  python3 - "${path}" "${SA_EMAIL}" <<'PY'
+import json, sys
+path, expected = sys.argv[1], sys.argv[2]
+data = json.load(open(path, encoding="utf-8"))
+email = (data.get("client_email") or "").strip()
+if email != expected:
+    print(f"VIRHE: {path} client_email={email!r} odotettiin {expected!r}", file=sys.stderr)
+    sys.exit(1)
+print(f"OK: SA JSON {email}")
+PY
+}
+
 install_key() {
   local src="$1"
+  verify_sa_json "${src}"
   cp "${src}" "${DEST}"
   chmod 600 "${DEST}"
   echo "OK: SA → ${DEST}"
 }
 
-if [[ -f "${DEST}" && -s "${DEST}" ]]; then
-  echo "OK: SA jo olemassa ${DEST}"
-  exit 0
+if [[ -f "${DEST}" && -s "${DEST}" && "${FORCE}" == "0" ]]; then
+  if verify_sa_json "${DEST}" 2>/dev/null; then
+    echo "OK: SA jo olemassa ${DEST} (käytä --force uudelleenlataukseen)"
+    exit 0
+  fi
+  echo "VAROITUS: vanha SA JSON virheellinen — haetaan uusi"
+  rm -f "${DEST}"
 fi
 [[ -f "${DEST}" && ! -s "${DEST}" ]] && rm -f "${DEST}"
 

@@ -34,7 +34,7 @@ echo "==> repair_mac_chat: ${EMAIL} port ${PORT}"
 TENANT="$(python3 -c "import re; e='${EMAIL}'.split('@')[0].lower(); print(re.sub(r'[^a-z0-9]+','-',e).strip('-'))")"
 export TENANT
 python3 scripts/lib/strip_pubsub_env.py "${HOME}/.hermes/.env" 2>/dev/null || true
-bash scripts/ensure_tenant_sa.sh "${TENANT}" || echo "VAROITUS: SA JSON puuttuu — outbound-viestit eivät toimi ennen gcloud/Secret Manager"
+bash scripts/refresh_chat_sa.sh "${TENANT}" --restart || echo "VAROITUS: SA JSON / outbound — aja: gcloud auth login && bash scripts/refresh_chat_sa.sh ${TENANT}"
 # bootstrap kirjoittaa .env:n (API_SERVER_*, GOOGLE_CHAT_HTTP_EVENTS_*) ja käynnistää gatewayn uudelleen
 bash scripts/bootstrap_hermes_mac.sh "${EMAIL}" || true
 bash scripts/ensure_mac_gateway_running.sh "${PORT}"

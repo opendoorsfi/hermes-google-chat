@@ -22,8 +22,15 @@
 5. **Chat API Configuration**
    - Connection = Cloud Pub/Sub, oikea topic-polku
 
-## 403 Forbidden outbound
+## 403 Forbidden outbound (HTTP-tila)
 
+- **Inbound toimii, outbound ei:** `~/.hermes/secrets/google-chat-sa.json` puuttuu tai vanha väärä avain.
+  ADC (`gcloud auth application-default login`) **ei riitä** — Hermes tarvitsee `hermes-chat-bot@<projekti>.iam.gserviceaccount.com` JSON-avaimen.
+  ```bash
+  gcloud auth login   # kerran Macilla
+  bash scripts/refresh_chat_sa.sh natalia --restart
+  ```
+- Pub/Sub→HTTP Console-muutos / uusi DM → aloita uusi keskustelu Find apps → hermes-chat
 - Botti poistettu spacesta → lisää uudelleen
 - App poistettu käytöstä Consolesta
 
