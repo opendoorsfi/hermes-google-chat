@@ -1,8 +1,8 @@
 {
   "gcp_project": "od-azuracast-sync",
-  "funnel_base_url": "https://hermes-host.tailXXXX.ts.net",
+  "funnel_base_url": "https://ubuntu-work-h.tail28712d.ts.net",
   "users": [
     "ipad@info.opendoors.fi"
   ],
-  "sync_version": 5
+  "sync_version": 6
 }
