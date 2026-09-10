@@ -68,6 +68,15 @@ h = json.load(sys.stdin)
 print('Registry odottaa:')
 print(f\"  App name: {h['chat_app_display_name']}\")
 print(f\"  Allowed:  {h['allowed_users']}\")
-print(f\"  Transport: Pub/Sub → projects/{h['gcp_project']}/topics/{h['pubsub_topic']}\")
+if h.get('transport') == 'http':
+    print(f\"  Transport: HTTP endpoint\")
+    print(f\"  URL:       {h['chat_http_events_url']}\")
+    print(f\"  Audience:  {h['chat_http_events_url']}  (sama kuin URL)\")
+    print(f\"  Inbound host: {h.get('chat_inbound_host', '')}\")
+else:
+    print(f\"  Transport: Pub/Sub → projects/{h['gcp_project']}/topics/{h['pubsub_topic']}\")
 "
+  echo ""
+  echo "Jos GChat-logissa ei inboundia mutta funnel vastaa 401:"
+  echo "  → Console on yhä Pub/Sub-tilassa. Aja: bash scripts/print_console_save.sh"
 fi
