@@ -26,11 +26,11 @@
     },
     "natalia-mac": {
       "platform": "darwin",
-      "funnel_base_url": "https://natalia.tail28712d.ts.net",
+      "funnel_base_url": "https://tommis-macbook-pro.tail28712d.ts.net",
       "bootstrap": "scripts/bootstrap_hermes_mac.sh",
       "path_prefix_mode": "root",
       "gateway_port": 8642
     }
   },
-  "sync_version": 14
+  "sync_version": 15
 }

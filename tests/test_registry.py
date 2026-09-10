@@ -61,7 +61,7 @@ def test_natalia_mac_mapping() -> None:
     assert "PLATFORM=darwin" in text
     assert "PORT=8642" in text
     assert "PATH_PREFIX=" in text or 'PATH_PREFIX=""' in text
-    assert "FUNNEL_BASE_URL=https://natalia.tail28712d.ts.net" in text
+    assert "FUNNEL_BASE_URL=https://tommis-macbook-pro.tail28712d.ts.net" in text
     host_users = subprocess.run(
         ["python3", "scripts/chat_registry.py", "host-users", "natalia-mac"],
         cwd=ROOT,
@@ -73,7 +73,7 @@ def test_natalia_mac_mapping() -> None:
     assert len(users) == 1
     assert users[0]["TENANT"] == "natalia"
     events = f"{users[0]['FUNNEL_BASE_URL']}/api/platforms/google_chat/events"
-    assert events == "https://natalia.tail28712d.ts.net/api/platforms/google_chat/events"
+    assert events == "https://tommis-macbook-pro.tail28712d.ts.net/api/platforms/google_chat/events"
 
 
 def test_sync_workflow_exists() -> None:
