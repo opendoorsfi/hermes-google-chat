@@ -4,9 +4,5 @@
   "users": [
     "ipad@info.opendoors.fi"
   ],
-<<<<<<< Updated upstream
-  "sync_version": 6
-=======
-  "sync_version": 7
->>>>>>> Stashed changes
+  "sync_version": 8
 }
