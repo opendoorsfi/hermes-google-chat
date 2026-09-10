@@ -66,10 +66,18 @@ enable_apis() {
 echo "==> Enable APIs (Chat + IAM only)"
 enable_apis "chat.googleapis.com iam.googleapis.com"
 
-if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${GCP_PROJECT}" &>/dev/null; then
-  gcloud iam service-accounts create "${SA_NAME}" \
-    --project="${GCP_PROJECT}" \
-    --display-name="Hermes Google Chat (${TENANT:-tenant})"
+if gcloud iam service-accounts describe "${SA_EMAIL}" --project="${GCP_PROJECT}" &>/dev/null; then
+  echo "OK: service account ${SA_EMAIL} exists"
+elif gcloud iam service-accounts create "${SA_NAME}" \
+  --project="${GCP_PROJECT}" \
+  --display-name="Hermes Google Chat (${TENANT:-tenant})" 2>/tmp/hermes_sa_create.err; then
+  echo "OK: created ${SA_EMAIL}"
+else
+  echo "VAROITUS: SA ${SA_EMAIL} puuttuu eikä luonti onnistunut (deploy-SA IAM?)."
+  echo "  Anna github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com:"
+  echo "    roles/serviceusage.serviceUsageAdmin + roles/iam.serviceAccountAdmin"
+  sed 's/^/  /' /tmp/hermes_sa_create.err || true
+  rm -f /tmp/hermes_sa_create.err
 fi
 
 OUT_DIR="${ROOT}/out/tenants/${TENANT:-${GCP_PROJECT}}"
