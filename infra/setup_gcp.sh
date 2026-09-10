@@ -41,7 +41,7 @@ enable_apis() {
   return 0
 }
 
-APIS="run.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com chat.googleapis.com iam.googleapis.com cloudbuild.googleapis.com"
+APIS="run.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com chat.googleapis.com iam.googleapis.com iamcredentials.googleapis.com cloudresourcemanager.googleapis.com cloudbuild.googleapis.com"
 if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
   APIS="${APIS} pubsub.googleapis.com"
 fi
