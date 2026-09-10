@@ -39,4 +39,4 @@ gcloud pubsub topics publish "${TOPIC}" \
   --message="${payload}" \
   --attribute="ce-type=google.chat.event.v1.message"
 
-echo "OK — Hermes-gatewayin pitäisi vastata Chat-DM:ään ~30s"
+echo "OK — Hermes-gatewayin pitäisi vastata Chat-DM:ään ~30s (Pub/Sub → gateway → Chat API)"

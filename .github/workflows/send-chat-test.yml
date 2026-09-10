@@ -1,6 +1,11 @@
 name: Send Chat test
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish_chat_inbound_test.sh
+      - .github/workflows/send-chat-test.yml
   workflow_dispatch:
     inputs:
       email:
