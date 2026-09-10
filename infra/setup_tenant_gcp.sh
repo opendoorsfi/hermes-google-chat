@@ -23,10 +23,14 @@ if [[ -n "${TENANT}" ]]; then
   GCP_PROJECT="${GCP_PROJECT_OVERRIDE:-${GCP_PROJECT:?}}"
   FUNNEL_BASE_URL="${FUNNEL_BASE_URL_OVERRIDE:-${FUNNEL_BASE_URL:-}}"
   if [[ -z "${CHAT_HTTP_EVENTS_URL:-}" && "${FUNNEL_BASE_URL}" == *tailXXXX* ]]; then
-    echo "VIRHE: FUNNEL_BASE_URL on placeholder (${FUNNEL_BASE_URL})."
-    echo "  Kopioi config/tenants/${TENANT}.env.example → ${TENANT}.env ja aseta oikea Funnel-URL,"
-    echo "  tai anna FUNNEL_BASE_URL=https://<host>.ts.net ympäristömuuttujana."
-    exit 1
+    if [[ "${ALLOW_PLACEHOLDER_FUNNEL:-0}" == "1" ]]; then
+      echo "VAROITUS: FUNNEL_BASE_URL on placeholder — GCP-resurssit luodaan, Chat Console odottaa oikeaa URL:ia."
+    else
+      echo "VIRHE: FUNNEL_BASE_URL on placeholder (${FUNNEL_BASE_URL})."
+      echo "  Kopioi config/tenants/${TENANT}.env.example → ${TENANT}.env ja aseta oikea Funnel-URL,"
+      echo "  tai anna FUNNEL_BASE_URL=https://<host>.ts.net ympäristömuuttujana."
+      exit 1
+    fi
   fi
   CHAT_HTTP_EVENTS_URL="${CHAT_HTTP_EVENTS_URL:-$(tenant_chat_http_url)}"
 fi

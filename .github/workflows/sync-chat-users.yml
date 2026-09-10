@@ -64,11 +64,11 @@ jobs:
         run: |
           FUNNEL="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['funnel_base_url'])")"
           if [[ "${FUNNEL}" == *tailXXXX* || -z "${FUNNEL}" ]]; then
-            echo "funnel_ok=false"
             echo "::warning::funnel_base_url on placeholder — päivitä config/tenants/registry.json (infra kerran)"
+            echo "funnel_ok=false" >> "$GITHUB_OUTPUT"
           else
-            echo "funnel_ok=true"
-          fi >> "$GITHUB_OUTPUT"
+            echo "funnel_ok=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - id: matrix
         run: |
@@ -118,6 +118,7 @@ jobs:
         env:
           TENANT: ${{ matrix.tenant }}
           SKIP_SA_KEY: "1"
+          ALLOW_PLACEHOLDER_FUNNEL: ${{ needs.register.outputs.funnel_ok != 'true' && '1' || '0' }}
         run: bash infra/setup_tenant_gcp.sh
 
       - uses: actions/upload-artifact@v4
