@@ -39,13 +39,16 @@ def allocate_port(index: int) -> int:
     return BASE_PORT + index
 
 
-def tenant_manifest(email: str, index: int, funnel_base_url: str) -> dict[str, str]:
+def tenant_manifest(
+    email: str, index: int, funnel_base_url: str, gcp_project: str
+) -> dict[str, str]:
     tid = email_to_tenant_id(email)
     port = str(allocate_port(index))
     prefix = f"/{tid}"
     return {
         "TENANT": tid,
-        "GCP_PROJECT": f"hermes-{tid}",
+        "GCP_PROJECT": gcp_project,
+        "SA_NAME": f"hermes-chat-{tid}",
         "LINUX_USER": f"hermes-{tid}",
         "PORT": port,
         "PATH_PREFIX": prefix,
@@ -75,12 +78,13 @@ def write_env(manifest: dict[str, str]) -> Path:
 def generate_all() -> list[dict[str, str]]:
     reg = load_registry()
     funnel = reg.get("funnel_base_url", "").strip()
+    gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
     manifests = []
     for i, email in enumerate(reg["users"]):
         email = email.strip()
         if not email:
             continue
-        m = tenant_manifest(email, i, funnel)
+        m = tenant_manifest(email, i, funnel, gcp_project)
         write_env(m)
         manifests.append(m)
     return manifests
@@ -100,7 +104,8 @@ def add_user(email: str) -> dict[str, str]:
         REGISTRY_PATH.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
     idx = users.index(email)
     funnel = reg.get("funnel_base_url", "")
-    m = tenant_manifest(email, idx, funnel)
+    gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+    m = tenant_manifest(email, idx, funnel, gcp_project)
     write_env(m)
     return m
 
@@ -131,11 +136,12 @@ def main() -> int:
     if cmd == "summary":
         reg = load_registry()
         funnel = reg.get("funnel_base_url", "")
+        gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
         for i, email in enumerate(reg["users"]):
             email = email.strip()
             if not email:
                 continue
-            m = tenant_manifest(email, i, funnel)
+            m = tenant_manifest(email, i, funnel, gcp_project)
             events = f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
             print(f"## {m['CHAT_APP_DISPLAY_NAME']} (`{m['TENANT']}`)")
             print(f"- Email: `{m['GOOGLE_CHAT_ALLOWED_USERS']}`")

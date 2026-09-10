@@ -97,22 +97,15 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Ensure GCP project
+      - name: Verify GCP project
         env:
           TENANT: ${{ matrix.tenant }}
         run: |
           # shellcheck source=scripts/lib/tenant.sh
           source scripts/lib/tenant.sh
           load_tenant "${TENANT}"
-          if gcloud projects describe "${GCP_PROJECT}" &>/dev/null; then
-            echo "OK: project ${GCP_PROJECT} exists"
-          else
-            echo "==> Creating project ${GCP_PROJECT}"
-            gcloud projects create "${GCP_PROJECT}" --quiet || {
-              echo "::error::Projektin ${GCP_PROJECT} luonti epäonnistui — luo Consolesta tai anna deploy-SA oikeudet"
-              exit 1
-            }
-          fi
+          gcloud projects describe "${GCP_PROJECT}" >/dev/null
+          echo "OK: project ${GCP_PROJECT}"
 
       - name: setup_tenant_gcp.sh
         env:

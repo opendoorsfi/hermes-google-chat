@@ -18,7 +18,7 @@
 
 | Asia | Kuka | Missä |
 |------|------|--------|
-| `funnel_base_url` registryssä | Infra / agentti | `config/tenants/registry.json` |
+| `gcp_project` + `funnel_base_url` registryssä | Infra / agentti (kerran) | `config/tenants/registry.json` |
 | Self-hosted runner `hermes-host` | Infra (kerran) | Hermes-isäntäpalvelin |
 | WIF | Repossa workflow-env (tai GitHub secrets) | `.github/workflows/sync-chat-users.yml` |
 

@@ -28,7 +28,8 @@ def test_ipad_email_mapping() -> None:
     m = json.loads(out.stdout)
     assert m["TENANT"] == "ipad"
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
-    assert m["GCP_PROJECT"] == "hermes-ipad"
+    assert m["GCP_PROJECT"] == "od-azuracast-sync"
+    assert m["SA_NAME"] == "hermes-chat-ipad"
     assert m["PORT"] == "8081"
     assert m["CHAT_APP_DISPLAY_NAME"] == "Hermes (Ipad)"
     assert "/ipad/api/platforms/google_chat/events" in (
