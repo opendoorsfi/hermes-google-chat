@@ -115,6 +115,9 @@ def tenant_manifest(
         "FUNNEL_BASE_URL": str(host_cfg.get("funnel_base_url", "")).rstrip("/"),
         "HOST": str(host_cfg.get("host_id", "")),
         "PLATFORM": platform,
+        "CHAT_TRANSPORT": str(reg.get("default_chat_transport", "pubsub")).strip(),
+        "CHAT_PUBSUB_TOPIC": str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip(),
+        "CHAT_PUBSUB_SUB": str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip(),
     }
     return manifest
 

@@ -1,0 +1,78 @@
+name: Create Hermes Chat app (GCP)
+
+# Luo Pub/Sub + SA + Console-ohje. Chat Configuration-Save vaatii yhden Console-klikin (Google API-rajoitus).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: "Tenant id (esim. ipad)"
+        required: false
+        default: "ipad"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - scripts/provision_hermes_chat_app.sh
+      - .github/workflows/create-chat-app.yml
+      - config/tenants/registry.json
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  GCP_DEPLOY_SA_EMAIL: github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com
+
+jobs:
+  provision:
+    name: GCP + Chat app setup (${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: python3 scripts/chat_registry.py generate-all
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Provision Hermes Chat app (Pub/Sub)
+        env:
+          TENANT: ${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}
+          HERMES_CHAT_TRANSPORT: pubsub
+        run: bash scripts/provision_hermes_chat_app.sh | tee provision.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chat-app-setup-${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}
+          path: |
+            out/tenants/${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}/CHAT_APP_SETUP.md
+            provision.log
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          TENANT="${{ github.event_name == 'workflow_dispatch' && inputs.tenant || 'ipad' }}"
+          ENV_FILE="config/tenants/${TENANT}.env"
+          APP_NAME="$(grep '^CHAT_APP_DISPLAY_NAME=' "$ENV_FILE" | cut -d= -f2- | tr -d '"')"
+          ALLOWED="$(grep '^GOOGLE_CHAT_ALLOWED_USERS=' "$ENV_FILE" | cut -d= -f2- | tr -d '"')"
+          TOPIC="$(grep '^CHAT_PUBSUB_TOPIC=' "$ENV_FILE" | cut -d= -f2- | tr -d '"')"
+          {
+            echo "## Hermes Chat app — tenant \`${TENANT}\`"
+            echo
+            echo "**Projekti:** \`od-azuracast-sync\` — **EI** moderate/moderointi-projekti"
+            echo
+            echo "**Console (yksi Save):**"
+            echo "https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-azuracast-sync"
+            echo
+            echo "**App name:** ${APP_NAME}"
+            echo "**Pub/Sub topic:** \`projects/od-azuracast-sync/topics/${TOPIC}\`"
+            echo "**Visibility:** \`${ALLOWED}\`"
+            echo
+            cat "out/tenants/${TENANT}/CHAT_APP_SETUP.md"
+          } >> "$GITHUB_STEP_SUMMARY"

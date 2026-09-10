@@ -4,6 +4,21 @@
 
 **Agentti / GitHub:** hoitaa loput — sinun ei tarvitse ajaa komentoja missään.
 
+## Eri botit — älä sekoita moderointiin
+
+| Chat-app | GCP-projekti | Repo |
+|----------|--------------|------|
+| **Moderointi** (kommentit, Sheet) | moderate-projekti | `opendoorsfi/moderate` |
+| **Hermes (Ipad)** (LLM-avustaja) | `od-azuracast-sync` | `opendoorsfi/hermes-google-chat` |
+
+Jos Chatissa näkyy vain moderointi-botti, etsit väärää appia. Hermes-botti luodaan projektiin **`od-azuracast-sync`** nimellä **Hermes (Ipad)**.
+
+GitHub luo Pub/Sub-infra + ohjeen. **Yksi Console-Save** on pakollinen (Google ei tarjoa API:ta appin rekisteröintiin Chatissa):
+
+https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-azuracast-sync
+
+Workflow **Create Hermes Chat app (GCP)** (`create-chat-app.yml`) tuottaa tarkat arvot artefaktiin `CHAT_APP_SETUP.md`.
+
 ## Miten se toimii
 
 1. Sähköposti lisätään tiedostoon `config/tenants/registry.json` (commit + push).
@@ -12,7 +27,8 @@
    - luo tenant-manifestin (`hermes-ipad`, portti, Chat-URL)
    - ajaa GCP-setupin (`setup_tenant_gcp.sh`)
    - yrittää host-synciä self-hosted runnerilla `hermes-host` (jos asennettu)
-4. Valmis → Google Chatissa etsit **Hermes (Ipad)** → Message → `Hei`.
+4. **Create Hermes Chat app** -workflow luo Pub/Sub-resurssit + Console-ohjeen.
+5. Console-Save (kerran) → Google Chatissa etsit **Hermes (Ipad)** → Message → `Hei`.
 
 ## macOS-host (Natalia)
 

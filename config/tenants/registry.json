@@ -1,6 +1,9 @@
 {
   "gcp_project": "od-azuracast-sync",
   "shared_chat_sa": "hermes-chat-bot",
+  "default_chat_transport": "pubsub",
+  "chat_pubsub_topic": "hermes-chat-events",
+  "chat_pubsub_subscription": "hermes-chat-events-sub",
   "funnel_base_url": "https://ubuntu-work-h.tail28712d.ts.net",
   "users": [
     {
@@ -26,5 +29,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 11
+  "sync_version": 12
 }
