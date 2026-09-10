@@ -173,7 +173,7 @@ jobs:
           TENANT: ${{ matrix.tenant }}
         run: bash scripts/ensure_chat_sa_artifact.sh "${{ matrix.tenant }}" || true
 
-      - name: Grant Chat SA impersonation (org policy: no JSON keys)
+      - name: Grant Chat SA impersonation (no JSON keys)
         run: bash infra/grant_chat_sa_impersonation.sh || true
 
       - uses: actions/upload-artifact@v4
