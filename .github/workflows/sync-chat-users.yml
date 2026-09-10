@@ -1,0 +1,162 @@
+name: Sync Chat users
+
+# Tavoite: käyttäjä antaa vain sähköpostin → agentti commitoi registry.json → tämä workflow.
+# GCP + (valinnainen) Hermes-host self-hosted runner.
+#
+# WIF-arvot docs/CREATE_REPO.md (ei salaisuuksia). Secrets ylikirjoittavat jos asetettu.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - config/tenants/registry.json
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Lisää käyttäjä (workspace-email), esim. ipad@info.opendoors.fi"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: sync-chat-users
+  cancel-in-progress: false
+
+env:
+  GCP_WIF_PROVIDER: projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  GCP_DEPLOY_SA_EMAIL: github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com
+
+jobs:
+  register:
+    name: Registry → manifests
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      funnel_ok: ${{ steps.check.outputs.funnel_ok }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add user from workflow_dispatch
+        if: inputs.email != ''
+        run: python3 scripts/chat_registry.py add "${{ inputs.email }}"
+
+      - name: Commit registry update (workflow_dispatch)
+        if: inputs.email != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/tenants/registry.json
+          if git diff --cached --quiet; then
+            echo "No registry change"
+          else
+            git commit -m "chore: add Chat user ${{ inputs.email }} [skip ci]"
+            git push
+          fi
+
+      - name: Generate tenant manifests
+        run: python3 scripts/chat_registry.py generate-all
+
+      - name: Check funnel URL
+        id: check
+        run: |
+          FUNNEL="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['funnel_base_url'])")"
+          if [[ "${FUNNEL}" == *tailXXXX* || -z "${FUNNEL}" ]]; then
+            echo "funnel_ok=false"
+            echo "::warning::funnel_base_url on placeholder — päivitä config/tenants/registry.json (infra kerran)"
+          else
+            echo "funnel_ok=true"
+          fi >> "$GITHUB_OUTPUT"
+
+      - id: matrix
+        run: |
+          MATRIX="$(python3 scripts/chat_registry.py matrix-json)"
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
+  gcp:
+    name: GCP (${{ matrix.tenant }})
+    needs: register
+    if: needs.register.outputs.matrix != '{"tenant":[]}'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.register.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate manifest
+        run: python3 scripts/chat_registry.py generate-all
+
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Ensure GCP project
+        env:
+          TENANT: ${{ matrix.tenant }}
+        run: |
+          # shellcheck source=scripts/lib/tenant.sh
+          source scripts/lib/tenant.sh
+          load_tenant "${TENANT}"
+          if gcloud projects describe "${GCP_PROJECT}" &>/dev/null; then
+            echo "OK: project ${GCP_PROJECT} exists"
+          else
+            echo "==> Creating project ${GCP_PROJECT}"
+            gcloud projects create "${GCP_PROJECT}" --quiet || {
+              echo "::error::Projektin ${GCP_PROJECT} luonti epäonnistui — luo Consolesta tai anna deploy-SA oikeudet"
+              exit 1
+            }
+          fi
+
+      - name: setup_tenant_gcp.sh
+        env:
+          TENANT: ${{ matrix.tenant }}
+          SKIP_SA_KEY: "1"
+        run: bash infra/setup_tenant_gcp.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-${{ matrix.tenant }}-gcp
+          path: |
+            out/tenants/${{ matrix.tenant }}/gcp.env
+            out/tenants/${{ matrix.tenant }}/CHAT_CONSOLE_CHECKLIST.md
+          retention-days: 30
+
+  host:
+    name: Hermes host sync
+    needs: [register, gcp]
+    runs-on: [self-hosted, hermes-host]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync systemd + Caddy + gateways
+        run: sudo bash scripts/sync_host_from_registry.sh
+
+  notify:
+    name: User instructions
+    needs: [register, gcp, host]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chat install summary
+        run: |
+          {
+            echo "## Google Chat — käyttäjät synkattu"
+            echo
+            python3 scripts/chat_registry.py summary
+            if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then
+              echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
+            fi
+            if [[ "${{ needs.host.result }}" != "success" ]]; then
+              echo "> **Host:** Self-hosted runner \`hermes-host\` puuttuu tai sync epäonnistui."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
