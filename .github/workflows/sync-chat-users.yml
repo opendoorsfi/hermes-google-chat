@@ -132,8 +132,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync systemd + Caddy + gateways
-        run: sudo bash scripts/sync_host_from_registry.sh
+      - name: Sync Hermes host (Linux or macOS)
+        run: |
+          if [[ "$(uname -s)" == "Darwin" ]]; then
+            bash scripts/sync_mac_from_registry.sh
+          else
+            sudo bash scripts/sync_host_from_registry.sh
+          fi
 
   notify:
     name: User instructions

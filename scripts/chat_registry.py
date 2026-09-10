@@ -7,6 +7,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "config" / "tenants" / "registry.json"
@@ -19,6 +20,41 @@ def load_registry() -> dict:
     if "users" not in data:
         raise ValueError("registry.json: missing 'users'")
     return data
+
+
+def normalize_user(entry: str | dict[str, Any]) -> tuple[str, str | None]:
+    if isinstance(entry, str):
+        email = entry.strip().lower()
+        return email, None
+    if isinstance(entry, dict):
+        email = str(entry.get("email", "")).strip().lower()
+        host = entry.get("host")
+        host_id = str(host).strip() if host else None
+        return email, host_id
+    raise ValueError(f"registry.json: invalid user entry: {entry!r}")
+
+
+def resolve_host(reg: dict, host_id: str | None) -> dict[str, Any]:
+    default_funnel = reg.get("funnel_base_url", "").strip()
+    hosts = reg.get("hosts") or {}
+    if host_id and host_id in hosts:
+        cfg = hosts[host_id]
+        return {
+            "host_id": host_id,
+            "platform": cfg.get("platform", "linux"),
+            "funnel_base_url": str(cfg.get("funnel_base_url", default_funnel)).strip(),
+            "path_prefix_mode": cfg.get("path_prefix_mode", "tenant"),
+            "gateway_port": cfg.get("gateway_port"),
+            "bootstrap": cfg.get("bootstrap", ""),
+        }
+    return {
+        "host_id": host_id or "",
+        "platform": "linux",
+        "funnel_base_url": default_funnel,
+        "path_prefix_mode": "tenant",
+        "gateway_port": None,
+        "bootstrap": "scripts/bootstrap_hermes_host.sh",
+    }
 
 
 def email_to_tenant_id(email: str) -> str:
@@ -39,24 +75,39 @@ def allocate_port(index: int) -> int:
     return BASE_PORT + index
 
 
+def path_prefix(tenant_id: str, path_prefix_mode: str) -> str:
+    if path_prefix_mode == "root":
+        return ""
+    return f"/{tenant_id}"
+
+
 def tenant_manifest(
-    email: str, index: int, funnel_base_url: str, gcp_project: str
+    email: str,
+    index: int,
+    host_cfg: dict[str, Any],
+    gcp_project: str,
 ) -> dict[str, str]:
     tid = email_to_tenant_id(email)
-    port = str(allocate_port(index))
-    prefix = f"/{tid}"
-    return {
+    prefix = path_prefix(tid, host_cfg.get("path_prefix_mode", "tenant"))
+    gateway_port = host_cfg.get("gateway_port")
+    port = str(gateway_port if gateway_port is not None else allocate_port(index))
+    platform = host_cfg.get("platform", "linux")
+    linux_user = tid if platform == "darwin" else f"hermes-{tid}"
+    manifest: dict[str, str] = {
         "TENANT": tid,
         "GCP_PROJECT": gcp_project,
         "SA_NAME": f"hermes-chat-{tid}",
-        "LINUX_USER": f"hermes-{tid}",
+        "LINUX_USER": linux_user,
         "PORT": port,
         "PATH_PREFIX": prefix,
         "ROLE": "personal",
         "CHAT_APP_DISPLAY_NAME": display_name(tid),
         "GOOGLE_CHAT_ALLOWED_USERS": email.strip().lower(),
-        "FUNNEL_BASE_URL": funnel_base_url.rstrip("/"),
+        "FUNNEL_BASE_URL": str(host_cfg.get("funnel_base_url", "")).rstrip("/"),
+        "HOST": str(host_cfg.get("host_id", "")),
+        "PLATFORM": platform,
     }
+    return manifest
 
 
 def env_value(value: str) -> str:
@@ -75,16 +126,23 @@ def write_env(manifest: dict[str, str]) -> Path:
     return path
 
 
+def iter_user_entries(reg: dict | None = None) -> list[tuple[str, str | None]]:
+    reg = reg or load_registry()
+    entries: list[tuple[str, str | None]] = []
+    for entry in reg["users"]:
+        email, host_id = normalize_user(entry)
+        if email:
+            entries.append((email, host_id))
+    return entries
+
+
 def generate_all() -> list[dict[str, str]]:
     reg = load_registry()
-    funnel = reg.get("funnel_base_url", "").strip()
     gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
     manifests = []
-    for i, email in enumerate(reg["users"]):
-        email = email.strip()
-        if not email:
-            continue
-        m = tenant_manifest(email, i, funnel, gcp_project)
+    for i, (email, host_id) in enumerate(iter_user_entries(reg)):
+        host_cfg = resolve_host(reg, host_id)
+        m = tenant_manifest(email, i, host_cfg, gcp_project)
         write_env(m)
         manifests.append(m)
     return manifests
@@ -94,25 +152,41 @@ def list_tenant_ids() -> list[str]:
     return [m["TENANT"] for m in generate_all()]
 
 
-def add_user(email: str) -> dict[str, str]:
+def add_user(email: str, host: str | None = None) -> dict[str, str]:
     reg = load_registry()
     email = email.strip().lower()
-    users = [u.strip().lower() for u in reg["users"]]
-    if email not in users:
-        users.append(email)
-        reg["users"] = users
+    entries = iter_user_entries(reg)
+    emails = [e for e, _ in entries]
+    if email not in emails:
+        if host:
+            reg.setdefault("users", []).append({"email": email, "host": host})
+        else:
+            reg.setdefault("users", []).append(email)
         REGISTRY_PATH.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
-    idx = users.index(email)
-    funnel = reg.get("funnel_base_url", "")
+        entries = iter_user_entries(reg)
+    idx = next(i for i, (e, _) in enumerate(entries) if e == email)
+    host_id = host or entries[idx][1]
+    host_cfg = resolve_host(reg, host_id)
     gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
-    m = tenant_manifest(email, idx, funnel, gcp_project)
+    m = tenant_manifest(email, idx, host_cfg, gcp_project)
     write_env(m)
     return m
 
 
+def chat_events_url(manifest: dict[str, str]) -> str:
+    base = manifest["FUNNEL_BASE_URL"].rstrip("/")
+    prefix = manifest.get("PATH_PREFIX", "").strip("/")
+    if prefix:
+        return f"{base}/{prefix}/api/platforms/google_chat/events"
+    return f"{base}/api/platforms/google_chat/events"
+
+
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: chat_registry.py generate-all|list-ids|add EMAIL|matrix-json", file=sys.stderr)
+        print(
+            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|summary|host-users HOST",
+            file=sys.stderr,
+        )
         return 1
     cmd = sys.argv[1]
     if cmd == "generate-all":
@@ -124,29 +198,45 @@ def main() -> int:
         return 0
     if cmd == "add":
         if len(sys.argv) < 3:
-            print("Usage: chat_registry.py add EMAIL", file=sys.stderr)
+            print("Usage: chat_registry.py add EMAIL [HOST]", file=sys.stderr)
             return 1
-        m = add_user(sys.argv[2])
+        host = sys.argv[3] if len(sys.argv) > 3 else None
+        m = add_user(sys.argv[2], host)
         print(json.dumps(m, indent=2))
         return 0
     if cmd == "matrix-json":
         ids = list_tenant_ids()
         print(json.dumps({"tenant": ids}))
         return 0
+    if cmd == "host-users":
+        if len(sys.argv) < 3:
+            print("Usage: chat_registry.py host-users HOST_ID", file=sys.stderr)
+            return 1
+        host_id = sys.argv[2]
+        reg = load_registry()
+        gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
+        users = []
+        for i, (email, entry_host) in enumerate(iter_user_entries(reg)):
+            if entry_host == host_id:
+                host_cfg = resolve_host(reg, host_id)
+                users.append(tenant_manifest(email, i, host_cfg, gcp_project))
+        print(json.dumps(users, indent=2))
+        return 0
     if cmd == "summary":
         reg = load_registry()
-        funnel = reg.get("funnel_base_url", "")
         gcp_project = reg.get("gcp_project", "od-azuracast-sync").strip()
-        for i, email in enumerate(reg["users"]):
-            email = email.strip()
-            if not email:
-                continue
-            m = tenant_manifest(email, i, funnel, gcp_project)
-            events = f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
+        for i, (email, host_id) in enumerate(iter_user_entries(reg)):
+            host_cfg = resolve_host(reg, host_id)
+            m = tenant_manifest(email, i, host_cfg, gcp_project)
+            events = chat_events_url(m)
             print(f"## {m['CHAT_APP_DISPLAY_NAME']} (`{m['TENANT']}`)")
             print(f"- Email: `{m['GOOGLE_CHAT_ALLOWED_USERS']}`")
+            print(f"- Host: `{m.get('HOST', '') or 'default'}` ({m.get('PLATFORM', 'linux')})")
             print(f"- GCP: `{m['GCP_PROJECT']}`")
             print(f"- Chat HTTP URL: `{events}`")
+            bootstrap = host_cfg.get("bootstrap") or ""
+            if bootstrap:
+                print(f"- Host bootstrap: `{bootstrap} {m['GOOGLE_CHAT_ALLOWED_USERS']}`")
             print(f"- Chatissa: Find apps → **{m['CHAT_APP_DISPLAY_NAME']}** → Message → `Hei`")
             print()
         return 0

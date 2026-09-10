@@ -14,6 +14,23 @@
    - yrittää host-synciä self-hosted runnerilla `hermes-host` (jos asennettu)
 4. Valmis → Google Chatissa etsit **Hermes (Ipad)** → Message → `Hei`.
 
+## macOS-host (Natalia)
+
+Käyttäjä voi olla omalla Macilla (`hosts.natalia-mac` registryssä). Ei sudo/Caddy — suora Hermes-gateway + Tailscale Funnel.
+
+**Kerran Macilla** (tai self-hosted runner `hermes-host` tekee automaattisesti):
+
+```bash
+git clone git@github.com:opendoorsfi/hermes-google-chat.git ~/hermes-google-chat
+cd ~/hermes-google-chat
+bash scripts/bootstrap_hermes_mac.sh natalia@info.opendoors.fi
+```
+
+Chat HTTP URL (root, ei `/natalia/`-prefixiä):  
+`https://natalia.tail28712d.ts.net/api/platforms/google_chat/events`
+
+Runner Macilla: aseta label `hermes-host` + `self-hosted`, env `HERMES_REGISTRY_HOST=natalia-mac`.
+
 ## Infra (kerran, ei käyttäjäkohtaista)
 
 | Asia | Kuka | Missä |
