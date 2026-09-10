@@ -10,11 +10,16 @@ EMAIL="${EMAIL:-ipad@info.opendoors.fi}"
 TEXT="${TEXT:-Hei — testi Hermes-pubsubista $(date -u +%H:%M:%S)}"
 EVENT_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-payload="$(python3 - <<PY
+export EMAIL TEXT EVENT_TIME
+
+payload="$(python3 - <<'PY'
 import json, os
-email = os.environ["EMAIL"]
-text = os.environ["TEXT"]
-event_time = os.environ["EVENT_TIME"]
+email = os.environ.get("EMAIL", "ipad@info.opendoors.fi")
+text = os.environ.get("TEXT", "Hei — Hermes pubsub-testi")
+event_time = os.environ.get("EVENT_TIME", "")
+if not event_time:
+    from datetime import datetime, timezone
+    event_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 print(json.dumps({
     "type": "MESSAGE",
     "eventTime": event_time,
