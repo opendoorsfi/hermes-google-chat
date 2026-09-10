@@ -1,0 +1,60 @@
+name: Bootstrap od-kansiot (kerran)
+
+# Ensimmäinen GCP-setup GitHubista. Vaatii YHDEN kertaluonteisen secretin:
+#   GCP_BOOTSTRAP_SA_JSON = od-kansiot admin/owner SA key (JSON)
+# Kun valmis → kopioi summarystä GCP_WIF_PROVIDER → GitHub secrets → Sync Chat users.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  bootstrap:
+    name: od-kansiot infra + WIF
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth (bootstrap SA key)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Bootstrap od-kansiot
+        run: bash scripts/bootstrap_od_kansiot_project.sh | tee bootstrap.log
+
+      - name: Capture WIF for GitHub secrets
+        id: wif
+        run: |
+          PROJECT_NUMBER="$(gcloud projects describe od-kansiot --format='value(projectNumber)')"
+          WIF="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          DEPLOY="github-hermes-deploy@od-kansiot.iam.gserviceaccount.com"
+          echo "wif=${WIF}" >> "$GITHUB_OUTPUT"
+          echo "deploy=${DEPLOY}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Bootstrap valmis — aseta GitHub secrets"
+            echo
+            echo "| Secret | Arvo |"
+            echo "|--------|------|"
+            echo "| \`GCP_WIF_PROVIDER\` | \`${WIF}\` |"
+            echo "| \`GCP_DEPLOY_SA_EMAIL\` | \`${DEPLOY}\` |"
+            echo
+            echo "Päivitä registry: \`config/tenants/registry.json\` → \`wif_provider\`"
+            echo
+            echo "Seuraavaksi: **Sync Chat users** → Console Save → host bootstrap"
+            echo
+            echo '```'
+            tail -40 bootstrap.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-od-kansiot
+          path: bootstrap.log
+          retention-days: 30

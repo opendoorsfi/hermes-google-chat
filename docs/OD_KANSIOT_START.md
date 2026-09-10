@@ -2,18 +2,22 @@
 
 PR merged. GitHub Hub yrittää synkata automaattisesti — **se epäonnistuu** kunnes alla olevat kolme admin-askelta on tehty.
 
-## 1. GCP bootstrap (sinä, kerran)
+## 1. GCP bootstrap (kerran)
 
-Koneella jossa `gcloud auth login` + admin `od-kansiot`:
+### Vaihtoehto A — GitHub (suositus)
+
+1. Luo `od-kansiot`-projektissa SA avain (Owner tai riittävät roolit) — **kerran**
+2. Repo → Settings → Secrets → `GCP_BOOTSTRAP_SA_JSON` = koko JSON
+3. Actions → **Bootstrap od-kansiot (kerran)** → Run workflow
+4. Summary → kopioi `GCP_WIF_PROVIDER` + `GCP_DEPLOY_SA_EMAIL` → secrets
+
+### Vaihtoehto B — Cloud Shell
 
 ```bash
-git clone git@github.com:opendoorsfi/hermes-google-chat.git
-cd hermes-google-chat && git pull origin main
-export GCP_PROJECT=od-kansiot
+git clone https://github.com/opendoorsfi/hermes-google-chat.git
+cd hermes-google-chat && export GCP_PROJECT=od-kansiot
 bash scripts/bootstrap_od_kansiot_project.sh
 ```
-
-Kopioi tulostus: `GCP_WIF_PROVIDER=projects/...`
 
 ## 2. GitHub secrets (sinä, kerran)
 
