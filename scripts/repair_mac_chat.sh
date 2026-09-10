@@ -33,6 +33,7 @@ print(users[0]['PORT'] if users else 8642)
 echo "==> repair_mac_chat: ${EMAIL} port ${PORT}"
 TENANT="$(python3 -c "import re; e='${EMAIL}'.split('@')[0].lower(); print(re.sub(r'[^a-z0-9]+','-',e).strip('-'))")"
 export TENANT
+python3 scripts/lib/strip_pubsub_env.py "${HOME}/.hermes/.env" 2>/dev/null || true
 bash scripts/ensure_tenant_sa.sh "${TENANT}" || echo "VAROITUS: SA JSON puuttuu — outbound-viestit eivät toimi ennen gcloud/Secret Manager"
 # bootstrap kirjoittaa .env:n (API_SERVER_*, GOOGLE_CHAT_HTTP_EVENTS_*) ja käynnistää gatewayn uudelleen
 bash scripts/bootstrap_hermes_mac.sh "${EMAIL}" || true
@@ -45,7 +46,13 @@ FUNNEL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${EVENTS}" \
 echo ""
 echo "Funnel ${EVENTS} → HTTP ${FUNNEL_CODE}"
 if [[ "${FUNNEL_CODE}" == "401" || "${FUNNEL_CODE}" == "403" ]]; then
-  echo "OK — Chat inbound valmis. Testaa: Google Chat → hermes-chat → Hei"
+  echo "OK — endpoint valmis (401/403)."
+  bash scripts/diagnose_gchat_inbound.sh --local 2>/dev/null || true
+  echo ""
+  echo "Jos Chat-viesti ei vieläkään näy logissa:"
+  echo "  1. Console → HTTP URL (ei Pub/Sub) → Save"
+  echo "  2. Lähetä UUSI viesti Chatissa (Find apps → hermes-chat)"
+  echo "  3. tail -f ~/.hermes/logs/gateway.log"
 else
   echo "VIRHE: odotettiin 401/403, sain ${FUNNEL_CODE}."
   case "${FUNNEL_CODE}" in

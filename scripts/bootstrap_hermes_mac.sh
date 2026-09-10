@@ -106,11 +106,15 @@ if [[ -z "${API_KEY}" ]]; then
   API_KEY="$(openssl rand -hex 32 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(32))')"
 fi
 
+if [[ -f "${ENV_FILE}" ]]; then
+  echo "==> Poistetaan Pub/Sub-rivit .env:stä (estävät HTTP-inboundin)"
+  python3 "${SCRIPT_DIR}/lib/strip_pubsub_env.py" "${ENV_FILE}" || true
+fi
 if [[ -f "${ENV_FILE}" ]] && grep -qF "${MARKER}" "${ENV_FILE}"; then
   echo "==> Päivitetään olemassa oleva Chat-lohko .env:ssä"
   # shellcheck disable=SC2016
   python3 - "${ENV_FILE}" "${MARKER}" <<'PY'
-import pathlib, re, sys
+import pathlib, sys
 path, marker = sys.argv[1], sys.argv[2]
 text = pathlib.Path(path).read_text(encoding="utf-8")
 if marker in text:
