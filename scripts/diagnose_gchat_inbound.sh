@@ -80,4 +80,6 @@ echo ""
 echo "--- 6. Console (manuaalinen) ---"
 bash "${ROOT}/scripts/print_console_save.sh" | head -20
 echo ""
-echo "Jos funnel=401 mutta Chat-viesti ei näy logissa → Console yhä Pub/Sub TAI .env:ssä SUBSCRIPTION rivi."
+echo "Jos funnel=401 mutta Chat-viesti ei näy logissa:"
+echo "  • Console yhä Pub/Sub TAI .env:ssä GOOGLE_CHAT_SUBSCRIPTION_* rivi"
+echo "  • Pub/Sub→HTTP Console-muutos poisti botin vanhasta DM:stä → Find apps → hermes-chat → UUSI keskustelu → Hei"
