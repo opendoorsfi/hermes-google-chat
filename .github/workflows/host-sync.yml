@@ -17,7 +17,7 @@ jobs:
       - name: Sync Hermes host (Linux or macOS)
         run: |
           if [[ "$(uname -s)" == "Darwin" ]]; then
-            bash scripts/sync_mac_from_registry.sh
+            bash scripts/repair_mac_chat.sh natalia@info.opendoors.fi
           else
             sudo bash scripts/sync_host_from_registry.sh
           fi

@@ -1,0 +1,38 @@
+name: HTTP endpoint check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - config/tenants/registry.json
+      - scripts/repair_mac_chat.sh
+      - scripts/ensure_mac_gateway_running.sh
+
+jobs:
+  check:
+    name: Funnel smoke (expect 401/403)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Chat HTTP URLs
+        run: |
+          python3 scripts/chat_registry.py summary > summary.txt
+          cat summary.txt
+          FAIL=0
+          while IFS= read -r url; do
+            [[ -n "${url}" ]] || continue
+            CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${url}" \
+              -H 'Content-Type: application/json' -d '{}' --max-time 20 2>/dev/null || echo 000)"
+            echo "${url} → HTTP ${CODE}"
+            if [[ "${CODE}" != "401" && "${CODE}" != "403" ]]; then
+              echo "::warning::${url} expected 401/403, got ${CODE} (502=gateway down on host)"
+              FAIL=1
+            fi
+          done < <(grep -o 'https://[^`]*google_chat/events' summary.txt || true)
+          if [[ "${FAIL}" == "1" ]]; then
+            echo ""
+            echo "Host-korjaus (Mac): bash scripts/repair_mac_chat.sh"
+            exit 1
+          fi

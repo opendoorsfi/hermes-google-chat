@@ -11,12 +11,27 @@ EMAIL="${1:-natalia@info.opendoors.fi}"
 EMAIL_LOWER="$(printf '%s' "${EMAIL}" | tr '[:upper:]' '[:lower:]')"
 TENANT="$(python3 -c "import re; e='${EMAIL_LOWER}'.split('@')[0]; print(re.sub(r'[^a-z0-9]+','-',e.lower()).strip('-'))")"
 GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
-PORT="${HERMES_CHAT_PORT:-8642}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 HERMES_HOME="${HERMES_HOME:-${HOME}/.hermes}"
 
 python3 "${REPO_ROOT}/scripts/chat_registry.py" generate-all >/dev/null 2>&1 || true
+
+PORT="${HERMES_CHAT_PORT:-$(python3 "${REPO_ROOT}/scripts/chat_registry.py" host-users natalia-mac 2>/dev/null | python3 -c "
+import json, sys
+users = json.load(sys.stdin)
+print(users[0]['PORT'] if users else 8642)
+" 2>/dev/null || echo 8642)}"
+ALLOWED_ALL="$(python3 -c "
+import json, pathlib
+reg = json.loads(pathlib.Path('${REPO_ROOT}/config/tenants/registry.json').read_text())
+emails = []
+for u in reg.get('users', []):
+    e = u.get('email') if isinstance(u, dict) else u
+    if e:
+        emails.append(str(e).strip().lower())
+print(','.join(sorted(set(emails))))
+" 2>/dev/null || echo "${EMAIL_LOWER}")"
 ENV_FILE="${HERMES_HOME}/.env"
 MARKER="# --- Google Chat mac bootstrap ---"
 
@@ -100,7 +115,7 @@ cat >> "${ENV_FILE}" <<EOF
 
 ${MARKER}
 GOOGLE_CHAT_PROJECT_ID=${GCP_PROJECT}
-GOOGLE_CHAT_ALLOWED_USERS=${EMAIL_LOWER}
+GOOGLE_CHAT_ALLOWED_USERS=${ALLOWED_ALL}
 GOOGLE_CHAT_MAX_MESSAGES=1
 GOOGLE_CHAT_MAX_BYTES=16777216
 GOOGLE_CHAT_HTTP_EVENTS_URL=${EVENTS_URL}
@@ -114,16 +129,9 @@ ${SA_CREDS}
 EOF
 chmod 600 "${ENV_FILE}" 2>/dev/null || true
 
-echo "==> Käynnistetään gateway uudelleen"
-if systemctl --user is-active hermes-gateway >/dev/null 2>&1; then
-  systemctl --user restart hermes-gateway
-elif launchctl list 2>/dev/null | grep -qi hermes; then
-  launchctl kickstart -k "gui/$(id -u)/com.hermes.gateway" 2>/dev/null || true
-else
-  echo "VAROITUS: hermes-gateway service ei löydy — käynnistä: hermes gateway run"
-fi
+echo "==> Käynnistetään gateway (launchd)"
+bash "${SCRIPT_DIR}/ensure_mac_gateway_running.sh" "${PORT}"
 
-sleep 2
 LOCAL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${PORT}/api/platforms/google_chat/events" \
   -H 'Content-Type: application/json' -d '{}' 2>/dev/null || echo "000")"
 FUNNEL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${EVENTS_URL}" \
@@ -132,11 +140,15 @@ FUNNEL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${EVENTS_URL}" \
 echo ""
 echo "local :${PORT}  → HTTP ${LOCAL_CODE} (401/403 = OK)"
 echo "funnel          → HTTP ${FUNNEL_CODE} (401/403 = OK)"
+if [[ "${FUNNEL_CODE}" == "502" || "${FUNNEL_CODE}" == "000" ]]; then
+  echo "VIRHE: Funnel ei reachaa gatewayta — tail -30 ~/.hermes/logs/gateway.err" >&2
+  exit 1
+fi
 echo ""
 echo "==> GCP Chat API Console (projekti ${GCP_PROJECT}):"
-echo "    App name: Hermes ($(echo "${EMAIL}" | cut -d@ -f1 | sed 's/^./\U&/'))"
+echo "    App name: hermes-chat"
 echo "    HTTP URL: ${EVENTS_URL}"
-echo "    Visibility: ${EMAIL}"
+echo "    Visibility: ${ALLOWED_ALL}"
 echo ""
 echo "==> Google Chat: Find apps → Hermes → Message → Hei"
 if [[ ! -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
