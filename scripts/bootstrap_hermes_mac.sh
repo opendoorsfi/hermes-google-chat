@@ -90,14 +90,10 @@ SA_CREDS=""
 if gcloud auth application-default print-access-token >/dev/null 2>&1; then
   echo "    ADC OK (inbound/gcloud) — outbound silti tarvitsee SA JSON alla"
 fi
-if ! bash "${SCRIPT_DIR}/ensure_tenant_sa.sh" "${TENANT}"; then
-  echo "VAROITUS: SA JSON puuttuu — aja: gcloud auth login && bash scripts/refresh_chat_sa.sh ${TENANT}"
-fi
-if [[ -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
-  SA_PATH="${HERMES_HOME}/secrets/google-chat-sa.json"
-  SA_CREDS="GOOGLE_CHAT_SERVICE_ACCOUNT_JSON=${SA_PATH}
-GOOGLE_APPLICATION_CREDENTIALS=${SA_PATH}"
-fi
+# Outbound: org policy estää SA JSON -avaimet → ADC impersonation (ei GOOGLE_APPLICATION_CREDENTIALS)
+bash "${SCRIPT_DIR}/setup_chat_outbound_auth.sh" "${TENANT}" 2>/dev/null || \
+  echo "VAROITUS: outbound auth myöhemmin (setup_chat_outbound_auth) — inbound toimii ilman"
+SA_CREDS=""
 
 # API server on oletuksena pois (API_SERVER_ENABLED=false) → ilman tätä Funnel antaa 502.
 API_KEY="$(grep -E '^API_SERVER_KEY=' "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- || true)"

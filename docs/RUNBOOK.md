@@ -24,12 +24,12 @@
 
 ## 403 Forbidden outbound (HTTP-tila)
 
-- **Inbound toimii, outbound ei:** `~/.hermes/secrets/google-chat-sa.json` puuttuu tai vanha väärä avain.
-  ADC (`gcloud auth application-default login`) **ei riitä** — Hermes tarvitsee `hermes-chat-bot@<projekti>.iam.gserviceaccount.com` JSON-avaimen.
+- **od-kansiot org policy** estää SA JSON -avaimet (`disableServiceAccountKeyCreation`).
+- **Ratkaisu:** ADC + SA impersonation (CI granttaa `serviceAccountTokenCreator` registry-käyttäjille):
   ```bash
-  gcloud auth login   # kerran Macilla
-  bash scripts/refresh_chat_sa.sh natalia --restart
+  bash scripts/setup_chat_outbound_auth.sh natalia --restart
   ```
+- Poista vanha väärä `google-chat-sa.json` (eri projekti) — skripti tekee sen automaattisesti.
 - Pub/Sub→HTTP Console-muutos / uusi DM → aloita uusi keskustelu Find apps → hermes-chat
 - Botti poistettu spacesta → lisää uudelleen
 - App poistettu käytöstä Consolesta

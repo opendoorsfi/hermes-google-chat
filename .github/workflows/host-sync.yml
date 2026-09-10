@@ -1,16 +1,28 @@
 name: Hermes host sync
 
-# Self-hosted runner work-h / Mac (label: hermes-host).
-# Asenna: repo Settings → Actions → Runners → New → labels hermes-host, self-hosted
+# Self-hosted runner (label: hermes-host) — Mac / work-h.
+# Käynnistyy automaattisesti Sync Chat users -workflow'n jälkeen.
 
 on:
+  workflow_run:
+    workflows: ["Sync Chat users"]
+    types: [completed]
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair_mac_chat.sh
+      - scripts/setup_chat_outbound_auth.sh
+      - scripts/bootstrap_hermes_mac.sh
+      - .github/workflows/host-sync.yml
+      - config/tenants/registry.json
 
 jobs:
   host:
-    name: Sync gateway + Funnel
+    name: Sync gateway + outbound auth
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: [self-hosted, hermes-host]
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

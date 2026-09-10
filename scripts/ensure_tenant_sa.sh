@@ -184,12 +184,7 @@ fi
 
 echo "VIRHE: SA JSON ei saatu automaattisesti tenantille ${TENANT}" >&2
 echo "" >&2
-echo "Vaihtoehdot (älä lähetä avainta chatissa):" >&2
-echo "  1. gcloud auth login && bash scripts/refresh_chat_sa.sh ${TENANT} --restart" >&2
-echo "  2. gh auth login && bash scripts/ensure_tenant_sa.sh ${TENANT} --force" >&2
-echo "  3. Selain: github.com/opendoorsfi/hermes-google-chat → Actions → Sync Chat users" >&2
-echo "     → Artifacts → tenant-${TENANT}-gcp → lataa zip →" >&2
-echo "     bash scripts/ensure_tenant_sa.sh ${TENANT} --from-zip ~/Downloads/tenant-${TENANT}-gcp.zip" >&2
-echo "  4. GCP Console → hermes-chat-bot@od-kansiot → Keys → JSON →" >&2
-echo "     bash scripts/ensure_tenant_sa.sh ${TENANT} --from-file /polku/avain.json" >&2
+echo "od-kansiot org policy estää SA JSON -avaimet (disableServiceAccountKeyCreation)." >&2
+echo "Käytä outbound: bash scripts/setup_chat_outbound_auth.sh ${TENANT} --restart" >&2
+echo "  (vaatii gcloud auth login + CI grant tokenCreator — Sync Chat users)" >&2
 exit 1
