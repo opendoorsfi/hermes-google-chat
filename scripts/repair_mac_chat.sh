@@ -31,7 +31,8 @@ print(users[0]['PORT'] if users else 8642)
 " 2>/dev/null || echo 8642)"
 
 echo "==> repair_mac_chat: ${EMAIL} port ${PORT}"
-bash scripts/bootstrap_hermes_mac.sh "${EMAIL}"
+# bootstrap kirjoittaa .env:n (API_SERVER_*, GOOGLE_CHAT_HTTP_EVENTS_*) ja käynnistää gatewayn uudelleen
+bash scripts/bootstrap_hermes_mac.sh "${EMAIL}" || true
 bash scripts/ensure_mac_gateway_running.sh "${PORT}"
 
 EVENTS="$(python3 scripts/chat_registry.py summary 2>/dev/null | awk -F'`' '/Chat HTTP URL/{print $2; exit}')"
@@ -43,7 +44,13 @@ echo "Funnel ${EVENTS} → HTTP ${FUNNEL_CODE}"
 if [[ "${FUNNEL_CODE}" == "401" || "${FUNNEL_CODE}" == "403" ]]; then
   echo "OK — Chat inbound valmis. Testaa: Google Chat → hermes-chat → Hei"
 else
-  echo "VIRHE: odotettiin 401/403, sain ${FUNNEL_CODE}. Logit:"
-  tail -30 "${HOME}/.hermes/logs/gateway.err" 2>/dev/null || true
+  echo "VIRHE: odotettiin 401/403, sain ${FUNNEL_CODE}."
+  case "${FUNNEL_CODE}" in
+    502|000) echo "  → Funnel ei tavoita porttia ${PORT}: tailscale funnel status; hermes gateway status" ;;
+    503)     echo "  → Google Chat -adapter ei yhdistetty: riippuvuudet puuttuvat tai GOOGLE_CHAT_HTTP_EVENTS_URL puuttuu .env:stä" ;;
+  esac
+  hermes gateway status 2>/dev/null | sed 's/^/    /' || true
+  grep -iE "GoogleChat|api.?server" "${HOME}/.hermes/logs/gateway.log" 2>/dev/null | tail -15 || true
+  tail -15 "${HOME}/.hermes/logs/gateway.err" 2>/dev/null || true
   exit 1
 fi

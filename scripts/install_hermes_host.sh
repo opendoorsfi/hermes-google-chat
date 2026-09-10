@@ -65,7 +65,10 @@ for tenant in "${TENANTS[@]}"; do
   install -d -m 700 -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.hermes"
   install -d -m 700 -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.hermes/secrets"
 
+  # API server on Hermeksessä oletuksena pois; Chat HTTP-callbackit kulkevat sen kautta → pakotetaan päälle.
   cat > "/etc/hermes/tenants/${LINUX_USER}.env" <<EOF
+API_SERVER_ENABLED=true
+API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=${PORT}
 GOOGLE_CHAT_PROJECT_ID=${GCP_PROJECT}
 HERMES_CHAT_TRANSPORT=http

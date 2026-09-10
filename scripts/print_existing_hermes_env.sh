@@ -49,8 +49,11 @@ if [[ "${TRANSPORT}" == "http" ]]; then
 GOOGLE_CHAT_HTTP_EVENTS_URL=${EVENTS}
 GOOGLE_CHAT_HTTP_EVENTS_AUDIENCE=${EVENTS}
 GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com
-API_SERVER_HOST=0.0.0.0
+HERMES_CHAT_TRANSPORT=http
+API_SERVER_ENABLED=true
+API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=8642
+API_SERVER_KEY=$(openssl rand -hex 32 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(32))')
 EOF
 else
   cat <<EOF

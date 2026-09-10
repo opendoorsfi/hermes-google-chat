@@ -98,6 +98,12 @@ if [[ -f "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
   SA_CREDS="GOOGLE_APPLICATION_CREDENTIALS=${HERMES_HOME}/secrets/google-chat-sa.json"
 fi
 
+# API server on oletuksena pois (API_SERVER_ENABLED=false) → ilman tätä Funnel antaa 502.
+API_KEY="$(grep -E '^API_SERVER_KEY=' "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+if [[ -z "${API_KEY}" ]]; then
+  API_KEY="$(openssl rand -hex 32 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(32))')"
+fi
+
 if [[ -f "${ENV_FILE}" ]] && grep -qF "${MARKER}" "${ENV_FILE}"; then
   echo "==> Päivitetään olemassa oleva Chat-lohko .env:ssä"
   # shellcheck disable=SC2016
@@ -122,15 +128,17 @@ GOOGLE_CHAT_HTTP_EVENTS_URL=${EVENTS_URL}
 GOOGLE_CHAT_HTTP_EVENTS_AUDIENCE=${EVENTS_URL}
 GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com
 HERMES_CHAT_TRANSPORT=http
-API_SERVER_HOST=0.0.0.0
+API_SERVER_ENABLED=true
+API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=${PORT}
+API_SERVER_KEY=${API_KEY}
 ${SA_CREDS}
 # --- end Google Chat mac bootstrap ---
 EOF
 chmod 600 "${ENV_FILE}" 2>/dev/null || true
 
-echo "==> Käynnistetään gateway (launchd)"
-bash "${SCRIPT_DIR}/ensure_mac_gateway_running.sh" "${PORT}"
+echo "==> Käynnistetään gateway uudelleen (.env päivitetty)"
+bash "${SCRIPT_DIR}/ensure_mac_gateway_running.sh" "${PORT}" --restart
 
 LOCAL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${PORT}/api/platforms/google_chat/events" \
   -H 'Content-Type: application/json' -d '{}' 2>/dev/null || echo "000")"
@@ -141,13 +149,20 @@ echo ""
 echo "local :${PORT}  → HTTP ${LOCAL_CODE} (401/403 = OK)"
 echo "funnel          → HTTP ${FUNNEL_CODE} (401/403 = OK)"
 if [[ "${FUNNEL_CODE}" == "502" || "${FUNNEL_CODE}" == "000" ]]; then
-  echo "VIRHE: Funnel ei reachaa gatewayta — tail -30 ~/.hermes/logs/gateway.err" >&2
+  echo "VIRHE: Funnel ei reachaa gatewayta (HTTP ${FUNNEL_CODE}) — tarkista: tailscale funnel status; hermes gateway status" >&2
+  exit 1
+fi
+if [[ "${FUNNEL_CODE}" == "503" ]]; then
+  echo "VIRHE: API server vastaa mutta Google Chat -adapter ei ole yhdistetty (503)." >&2
+  echo "       Riippuvuudet: cd ~/.hermes/hermes-agent && venv/bin/python -m plugins.platforms.google_chat.oauth --install-deps" >&2
+  echo "       Sitten: hermes gateway restart" >&2
   exit 1
 fi
 echo ""
 echo "==> GCP Chat API Console (projekti ${GCP_PROJECT}):"
 echo "    App name: hermes-chat"
-echo "    HTTP URL: ${EVENTS_URL}"
+echo "    Connection settings: HTTP endpoint URL = ${EVENTS_URL}"
+echo "    Authentication audience: HTTP endpoint URL (ei Project number)"
 echo "    Visibility: ${ALLOWED_ALL}"
 echo ""
 echo "==> Google Chat: Find apps → Hermes → Message → Hei"

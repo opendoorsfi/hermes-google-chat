@@ -28,6 +28,22 @@ def test_print_tenant_env_alice() -> None:
     assert "GOOGLE_CHAT_HTTP_EVENTS_URL=" in out.stdout
     assert "/alice/api/platforms/google_chat/events" in out.stdout
     assert "API_SERVER_PORT=8081" in out.stdout
+    # Hermes: API server oletuksena pois + avain pakollinen → ilman näitä Funnel antaa 502
+    assert "API_SERVER_ENABLED=true" in out.stdout
+    assert any(
+        line.startswith("API_SERVER_KEY=") and len(line) > len("API_SERVER_KEY=") + 16
+        for line in out.stdout.splitlines()
+    )
+
+
+def test_mac_bootstrap_enables_api_server() -> None:
+    text = (ROOT / "scripts" / "bootstrap_hermes_mac.sh").read_text(encoding="utf-8")
+    assert "API_SERVER_ENABLED=true" in text
+    assert "API_SERVER_KEY=" in text
+    assert "GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com" in text
+    assert "ensure_mac_gateway_running.sh" in text
+    host_env = (ROOT / "scripts" / "install_hermes_host.sh").read_text(encoding="utf-8")
+    assert "API_SERVER_ENABLED=true" in host_env
 
 
 def test_setup_tenant_gcp_script_exists() -> None:

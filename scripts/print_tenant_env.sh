@@ -26,8 +26,10 @@ GOOGLE_CHAT_HTTP_EVENTS_URL=${EVENTS_URL}
 GOOGLE_CHAT_HTTP_EVENTS_AUDIENCE=${EVENTS_URL}
 GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com
 HERMES_CHAT_TRANSPORT=http
+API_SERVER_ENABLED=true
 API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=${API_PORT}
+API_SERVER_KEY=${API_SERVER_KEY:-$(openssl rand -hex 32 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(32))')}
 # GOOGLE_CHAT_SERVICE_ACCOUNT_JSON=/home/${LINUX_USER}/.hermes/secrets/google-chat-sa.json
 # Optional: agent on another tailnet host
 # GATEWAY_PROXY_URL=http://100.x.y.z:8642
