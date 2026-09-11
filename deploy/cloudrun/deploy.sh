@@ -106,9 +106,7 @@ if [[ "${HERMES_GATEWAY_MODE}" == "embedded" ]]; then
 elif [[ "${HERMES_GATEWAY_MODE}" == "proxy" ]]; then
   DEPLOY_SECRETS+=("/secrets/hermes-gateway-proxy-key=hermes-api-server-key:latest")
 fi
-if gcloud secrets describe "hermes-google-chat-sa-json" --project="${GCP_PROJECT}" &>/dev/null; then
-  DEPLOY_SECRETS+=("/secrets/hermes-google-chat-sa-json=hermes-google-chat-sa-json:latest")
-fi
+# Cloud Run käyttää attached SA:ta (ADC) — JSON-mount ei tarvita Pub/Sub-gatewayssa.
 SECRETS_CSV="$(IFS=,; echo "${DEPLOY_SECRETS[*]}")"
 
 echo "==> Deploy Cloud Run ${SERVICE_NAME} (transport=${HERMES_CHAT_TRANSPORT}, mode=${HERMES_GATEWAY_MODE})"
