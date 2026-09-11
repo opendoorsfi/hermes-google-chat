@@ -201,7 +201,16 @@ def chat_transport(reg: dict | None = None) -> str:
 
 def all_allowed_users(reg: dict | None = None) -> list[str]:
     reg = reg or load_registry()
-    return [email for email, _ in iter_user_entries(reg)]
+    users = [email for email, _ in iter_user_entries(reg)]
+    extras = [
+        str(e).strip().lower()
+        for e in reg.get("extra_allowed_users", [])
+        if str(e).strip()
+    ]
+    for email in extras:
+        if email not in users:
+            users.append(email)
+    return users
 
 
 def registry_chat_app_name(reg: dict | None = None) -> str:

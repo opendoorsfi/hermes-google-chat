@@ -34,13 +34,13 @@ def test_ipad_email_mapping() -> None:
     assert m["PORT"] == "8081"
     assert m["HOST"] == "work-h"
     assert m["PLATFORM"] == "linux"
-    assert m["CHAT_APP_DISPLAY_NAME"] == "hermes-chat"
+    assert m["CHAT_APP_DISPLAY_NAME"] == "opendoors-hermes-chat"
     assert "/ipad/api/platforms/google_chat/events" in (
         f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
     )
     env_path = ROOT / "config" / "tenants" / "ipad.env"
     assert env_path.is_file()
-    assert "CHAT_APP_DISPLAY_NAME=hermes-chat" in env_path.read_text(encoding="utf-8")
+    assert "CHAT_APP_DISPLAY_NAME=opendoors-hermes-chat" in env_path.read_text(encoding="utf-8")
 
 
 def test_natalia_mac_mapping() -> None:
@@ -87,6 +87,19 @@ def test_sync_workflow_exists() -> None:
     assert 'SKIP_SA_KEY: "1"' not in wf
 
 
+def test_extra_allowed_users() -> None:
+    out = subprocess.run(
+        ["python3", "scripts/chat_registry.py", "hub-json"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    h = json.loads(out.stdout)
+    assert h["primary_tenant"] == "ipad"
+    assert "opendoorsfinland@gmail.com" in h["allowed_users"]
+
+
 def test_hub_json_od_kansiot() -> None:
     out = subprocess.run(
         ["python3", "scripts/chat_registry.py", "hub-json"],
@@ -97,8 +110,9 @@ def test_hub_json_od_kansiot() -> None:
     )
     h = json.loads(out.stdout)
     assert h["gcp_project"] == "opendoors-hermes-chat"
-    assert h["chat_app_display_name"] == "hermes-chat"
+    assert h["chat_app_display_name"] == "opendoors-hermes-chat"
     assert "ipad@info.opendoors.fi" in h["allowed_users"]
+    assert "opendoorsfinland@gmail.com" in h["allowed_users"]
     assert h["transport"] == "pubsub"
     assert h["chat_gateway_host"] == "work-h"
     assert h["primary_tenant"] == "ipad"

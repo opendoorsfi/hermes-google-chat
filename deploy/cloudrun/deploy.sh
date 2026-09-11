@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy hermes-gateway to Cloud Run (HTTP Chat inbound — no Pub/Sub org IAM).
+# Deploy hermes-gateway to Cloud Run (HTTP tai Pub/Sub Chat inbound).
 #
 # Embedded (oletus — LLM Cloud Runissa):
 #   export GCP_PROJECT=od-azuracast-sync
@@ -32,9 +32,15 @@ if [[ "${HERMES_GATEWAY_MODE}" == "proxy" && -z "${GATEWAY_PROXY_URL}" ]]; then
 fi
 
 GOOGLE_CHAT_PROJECT_ID="${GOOGLE_CHAT_PROJECT_ID:-${GCP_PROJECT}}"
+GOOGLE_CHAT_SUBSCRIPTION_NAME="${GOOGLE_CHAT_SUBSCRIPTION_NAME:-}"
+CHAT_PUBSUB_SUB="${CHAT_PUBSUB_SUB:-hermes-chat-events-sub}"
 GOOGLE_CHAT_ALLOWED_USERS="${GOOGLE_CHAT_ALLOWED_USERS:-}"
 GOOGLE_CHAT_HOME_CHANNEL="${GOOGLE_CHAT_HOME_CHANNEL:-}"
 GOOGLE_CHAT_BOOTSTRAP_SPACES="${GOOGLE_CHAT_BOOTSTRAP_SPACES:-${GOOGLE_CHAT_HOME_CHANNEL}}"
+
+if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" && -z "${GOOGLE_CHAT_SUBSCRIPTION_NAME}" ]]; then
+  GOOGLE_CHAT_SUBSCRIPTION_NAME="projects/${GOOGLE_CHAT_PROJECT_ID}/subscriptions/${CHAT_PUBSUB_SUB}"
+fi
 
 echo "==> Build ${IMAGE} (Cloud Build)"
 gcloud builds submit "${ROOT}" \
@@ -63,6 +69,9 @@ if [[ -n "${GOOGLE_CHAT_HOME_CHANNEL}" ]]; then
 fi
 if [[ -n "${GOOGLE_CHAT_BOOTSTRAP_SPACES}" ]]; then
   ENV_VARS+=",GOOGLE_CHAT_BOOTSTRAP_SPACES=${GOOGLE_CHAT_BOOTSTRAP_SPACES}"
+fi
+if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
+  ENV_VARS+=",GOOGLE_CHAT_SUBSCRIPTION_NAME=${GOOGLE_CHAT_SUBSCRIPTION_NAME}"
 fi
 
 DEPLOY_SECRETS=()
@@ -106,10 +115,17 @@ URL="$(gcloud run services describe "${SERVICE_NAME}" \
 
 CHAT_HTTP_URL="${URL}${CHAT_HTTP_PATH}"
 
-gcloud run services update "${SERVICE_NAME}" \
-  --project="${GCP_PROJECT}" \
-  --region="${GCP_REGION}" \
-  --update-env-vars="SERVICE_URL=${URL},GOOGLE_CHAT_HTTP_EVENTS_URL=${CHAT_HTTP_URL},GOOGLE_CHAT_HTTP_EVENTS_AUDIENCE=${CHAT_HTTP_URL},API_SERVER_PORT=8080"
+if [[ "${HERMES_CHAT_TRANSPORT}" == "http" ]]; then
+  gcloud run services update "${SERVICE_NAME}" \
+    --project="${GCP_PROJECT}" \
+    --region="${GCP_REGION}" \
+    --update-env-vars="SERVICE_URL=${URL},GOOGLE_CHAT_HTTP_EVENTS_URL=${CHAT_HTTP_URL},GOOGLE_CHAT_HTTP_EVENTS_AUDIENCE=${CHAT_HTTP_URL},API_SERVER_PORT=8080"
+else
+  gcloud run services update "${SERVICE_NAME}" \
+    --project="${GCP_PROJECT}" \
+    --region="${GCP_REGION}" \
+    --update-env-vars="SERVICE_URL=${URL},GOOGLE_CHAT_SUBSCRIPTION_NAME=${GOOGLE_CHAT_SUBSCRIPTION_NAME}"
+fi
 
 mkdir -p "${ROOT}/out"
 cat > "${ROOT}/out/deploy.env" <<EOF
@@ -121,12 +137,18 @@ CHAT_APP_URL=${CHAT_HTTP_URL}
 HERMES_CHAT_TRANSPORT=${HERMES_CHAT_TRANSPORT}
 HERMES_GATEWAY_MODE=${HERMES_GATEWAY_MODE}
 GATEWAY_PROXY_URL=${GATEWAY_PROXY_URL}
+GOOGLE_CHAT_SUBSCRIPTION_NAME=${GOOGLE_CHAT_SUBSCRIPTION_NAME}
 CHAT_HOME_CHANNEL=${GOOGLE_CHAT_HOME_CHANNEL}
 EOF
 chmod 600 "${ROOT}/out/deploy.env"
 
 echo ""
 echo "Deployed: ${URL}"
-echo "Chat API HTTP endpoint (Connection settings):"
-echo "  ${CHAT_HTTP_URL}"
+if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
+  echo "Pub/Sub subscription (gateway vetää):"
+  echo "  ${GOOGLE_CHAT_SUBSCRIPTION_NAME}"
+else
+  echo "Chat API HTTP endpoint (Connection settings):"
+  echo "  ${CHAT_HTTP_URL}"
+fi
 echo "Artifact: out/deploy.env"
