@@ -6,11 +6,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="${GCP_PROJECT:-$(python3 "${ROOT}/scripts/chat_registry.py" hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])")}"
 DEPLOY_SA="${GCP_DEPLOY_SA_EMAIL:-github-hermes-deploy@${PROJECT}.iam.gserviceaccount.com}"
+BOOTSTRAP_SA="github-bootstrap@${PROJECT}.iam.gserviceaccount.com"
+AR_REPO="${AR_REPO:-hermes-google-chat}"
+GCP_REGION="${GCP_REGION:-europe-north1}"
 
 echo "==> Grant deploy SA Chat + Cloud Run IAM on ${PROJECT}"
 echo "    ${DEPLOY_SA}"
 
-for role in \
+grant_sa_roles() {
+  local sa="$1"
+  echo "==> IAM for ${sa}"
+  for role in \
   roles/serviceusage.serviceUsageAdmin \
   roles/iam.serviceAccountAdmin \
   roles/iam.serviceAccountKeyAdmin \
@@ -24,12 +30,40 @@ for role in \
   roles/storage.admin \
   roles/iam.serviceAccountUser \
   roles/viewer; do
-  echo "  + ${role}"
-  gcloud projects add-iam-policy-binding "${PROJECT}" \
-    --member="serviceAccount:${DEPLOY_SA}" \
-    --role="${role}" \
-    --condition=None \
-    --quiet >/dev/null
+    echo "  + ${role}"
+    gcloud projects add-iam-policy-binding "${PROJECT}" \
+      --member="serviceAccount:${sa}" \
+      --role="${role}" \
+      --condition=None \
+      --quiet >/dev/null
+  done
+}
+
+grant_sa_roles "${DEPLOY_SA}"
+if gcloud iam service-accounts describe "${BOOTSTRAP_SA}" --project="${PROJECT}" &>/dev/null; then
+  grant_sa_roles "${BOOTSTRAP_SA}"
+fi
+
+gcloud services enable artifactregistry.googleapis.com storage.googleapis.com --project="${PROJECT}" --quiet 2>/dev/null || true
+if ! gcloud artifacts repositories describe "${AR_REPO}" \
+  --location="${GCP_REGION}" --project="${PROJECT}" &>/dev/null; then
+  echo "==> Create Artifact Registry ${AR_REPO} (${GCP_REGION})"
+  gcloud artifacts repositories create "${AR_REPO}" \
+    --project="${PROJECT}" \
+    --location="${GCP_REGION}" \
+    --repository-format=docker \
+    --description="Hermes Google Chat"
+fi
+
+CB_BUCKET="gs://${PROJECT}_cloudbuild"
+if ! gsutil ls -b "${CB_BUCKET}" &>/dev/null; then
+  echo "==> Create Cloud Build bucket ${CB_BUCKET}"
+  gsutil mb -p "${PROJECT}" -l "${GCP_REGION}" "${CB_BUCKET}" || true
+fi
+for sa in "${DEPLOY_SA}" "${BOOTSTRAP_SA}"; do
+  if gcloud iam service-accounts describe "${sa}" --project="${PROJECT}" &>/dev/null; then
+    gsutil iam ch "serviceAccount:${sa}:roles/storage.admin" "${CB_BUCKET}" 2>/dev/null || true
+  fi
 done
 
 gcloud services enable cloudbuild.googleapis.com --project="${PROJECT}" --quiet 2>/dev/null || true

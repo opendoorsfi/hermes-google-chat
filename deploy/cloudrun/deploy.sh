@@ -43,15 +43,17 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" && -z "${GOOGLE_CHAT_SUBSCRIPTION_N
 fi
 
 ensure_artifact_registry() {
-  if ! gcloud artifacts repositories describe "${AR_REPO}" \
+  if gcloud artifacts repositories describe "${AR_REPO}" \
     --location="${GCP_REGION}" --project="${GCP_PROJECT}" &>/dev/null; then
-    echo "==> Create Artifact Registry repo ${AR_REPO}"
-    gcloud artifacts repositories create "${AR_REPO}" \
-      --project="${GCP_PROJECT}" \
-      --location="${GCP_REGION}" \
-      --repository-format=docker \
-      --description="Hermes Google Chat container images"
+    echo "OK: Artifact Registry ${AR_REPO} (${GCP_REGION})"
+    return 0
   fi
+  echo "==> Create Artifact Registry repo ${AR_REPO}"
+  gcloud artifacts repositories create "${AR_REPO}" \
+    --project="${GCP_PROJECT}" \
+    --location="${GCP_REGION}" \
+    --repository-format=docker \
+    --description="Hermes Google Chat container images"
 }
 
 build_image() {
