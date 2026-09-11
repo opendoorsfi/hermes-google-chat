@@ -42,10 +42,24 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" && -z "${GOOGLE_CHAT_SUBSCRIPTION_N
   GOOGLE_CHAT_SUBSCRIPTION_NAME="projects/${GOOGLE_CHAT_PROJECT_ID}/subscriptions/${CHAT_PUBSUB_SUB}"
 fi
 
+ensure_artifact_registry() {
+  if ! gcloud artifacts repositories describe "${AR_REPO}" \
+    --location="${GCP_REGION}" --project="${GCP_PROJECT}" &>/dev/null; then
+    echo "==> Create Artifact Registry repo ${AR_REPO}"
+    gcloud artifacts repositories create "${AR_REPO}" \
+      --project="${GCP_PROJECT}" \
+      --location="${GCP_REGION}" \
+      --repository-format=docker \
+      --description="Hermes Google Chat container images"
+  fi
+}
+
 build_image() {
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     echo "==> Build ${IMAGE} (local Docker — GitHub Actions)"
-    gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+    ensure_artifact_registry
+    gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin \
+      "https://${GCP_REGION}-docker.pkg.dev"
     docker build -t "${IMAGE}" -f "${ROOT}/deploy/Dockerfile" "${ROOT}"
     docker push "${IMAGE}"
   else

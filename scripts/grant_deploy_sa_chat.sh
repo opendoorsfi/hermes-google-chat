@@ -19,7 +19,7 @@ for role in \
   roles/pubsub.admin \
   roles/chat.owner \
   roles/run.admin \
-  roles/artifactregistry.writer \
+  roles/artifactregistry.admin \
   roles/cloudbuild.builds.editor \
   roles/storage.admin \
   roles/iam.serviceAccountUser \
