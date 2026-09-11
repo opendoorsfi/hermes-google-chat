@@ -5,9 +5,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-HUB="$(python3 "${ROOT}/scripts/chat_registry.py" hub-json 2>/dev/null || echo '{}')"
-GCP_PROJECT="${GCP_PROJECT:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('gcp_project','opendoors-hermes-chat'))" "${HUB}")}"
-TOPIC="${TOPIC:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('pubsub_topic','hermes-chat-events'))" "${HUB}")}"
+HUB="$(python3 "${ROOT}/scripts/chat_registry.py" hub-json)"
+# Aina registry-projekti — setup-gcloud voi asettaa GCP_PROJECT=od-kansiot vanhasta secretistä.
+GCP_PROJECT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['gcp_project'])" "${HUB}")"
+TOPIC="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['pubsub_topic'])" "${HUB}")"
 EMAIL="${EMAIL:-opendoorsfinland@gmail.com}"
 TEXT="${TEXT:-Hei — testi Hermes-pubsubista $(date -u +%H:%M:%S)}"
 EVENT_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

@@ -2,7 +2,7 @@
 # Hae GCP Chat-infra (Pub/Sub, SA, API) — GitHub Actions WIF.
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:-$(python3 "$(dirname "$0")/chat_registry.py" hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])")}"
+GCP_PROJECT="$(python3 "$(dirname "$0")/chat_registry.py" hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['gcp_project'])")"
 TOPIC="${TOPIC:-hermes-chat-events}"
 SUB="${SUB:-hermes-chat-events-sub}"
 

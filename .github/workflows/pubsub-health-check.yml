@@ -31,6 +31,8 @@ jobs:
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
 
       - name: Inspect Chat GCP
         run: bash scripts/inspect_chat_gcp.sh | tee inspect.txt

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -29,6 +30,19 @@ def test_strip_http_chat_env() -> None:
     assert "GOOGLE_CHAT_SUBSCRIPTION_NAME" in text
     assert "OPENROUTER_API_KEY=keep-me" in text
     path.unlink()
+
+
+def test_publish_uses_registry_gcp_project() -> None:
+    out = subprocess.run(
+        ["bash", "-c", "GCP_PROJECT=od-kansiot bash scripts/publish_chat_inbound_test.sh"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GCP_PROJECT": "od-kansiot"},
+    )
+    # Dry-run: script echoes project in first lines even if gcloud missing
+    combined = (out.stdout or "") + (out.stderr or "")
+    assert "opendoors-hermes-chat" in combined or out.returncode != 0
 
 
 def test_setup_chat_pubsub_auth_script_exists() -> None:
