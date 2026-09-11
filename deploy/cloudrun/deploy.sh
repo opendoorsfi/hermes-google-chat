@@ -42,13 +42,24 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" && -z "${GOOGLE_CHAT_SUBSCRIPTION_N
   GOOGLE_CHAT_SUBSCRIPTION_NAME="projects/${GOOGLE_CHAT_PROJECT_ID}/subscriptions/${CHAT_PUBSUB_SUB}"
 fi
 
-echo "==> Build ${IMAGE} (Cloud Build)"
-gcloud builds submit "${ROOT}" \
-  --project="${GCP_PROJECT}" \
-  --config="${ROOT}/deploy/cloudbuild.yaml" \
-  --substitutions="_IMAGE=${IMAGE}" \
-  --timeout=1200s \
-  --quiet
+build_image() {
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "==> Build ${IMAGE} (local Docker — GitHub Actions)"
+    gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+    docker build -t "${IMAGE}" -f "${ROOT}/deploy/Dockerfile" "${ROOT}"
+    docker push "${IMAGE}"
+  else
+    echo "==> Build ${IMAGE} (Cloud Build)"
+    gcloud builds submit "${ROOT}" \
+      --project="${GCP_PROJECT}" \
+      --config="${ROOT}/deploy/cloudbuild.yaml" \
+      --substitutions="_IMAGE=${IMAGE}" \
+      --timeout=1200s \
+      --quiet
+  fi
+}
+
+build_image
 
 ENV_VARS="HERMES_CHAT_TRANSPORT=${HERMES_CHAT_TRANSPORT}"
 ENV_VARS+=",HERMES_GATEWAY_MODE=${HERMES_GATEWAY_MODE}"
