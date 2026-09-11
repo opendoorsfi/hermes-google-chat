@@ -53,7 +53,9 @@ jobs:
       - name: Bootstrap GCP (Pub/Sub + WIF)
         env:
           GCP_PROJECT: ${{ needs.gate.outputs.gcp_project }}
-        run: bash scripts/bootstrap_gcp_project.sh | tee bootstrap.log
+        run: |
+          set -o pipefail
+          bash scripts/bootstrap_gcp_project.sh | tee bootstrap.log
 
       - name: Commit WIF to registry
         env:
