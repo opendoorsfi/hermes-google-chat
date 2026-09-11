@@ -1,7 +1,7 @@
 name: Hermes host sync
 
-# Self-hosted runner (label: hermes-host) — agent-macbook-pro / muut registry-hostit.
-# Käynnistyy automaattisesti Sync Chat users -workflow'n jälkeen.
+# Self-hosted runner (label: hermes-host) — vain kun gateway EI ole Cloud Run.
+# Cloud Run -tilassa skipataan, jotta jobit eivät jää jonoon offline-Maciin.
 
 on:
   workflow_run:
@@ -21,9 +21,31 @@ on:
       - config/tenants/registry.json
 
 jobs:
+  gate:
+    name: Need host runner?
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      need_host: ${{ steps.d.outputs.need_host }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: d
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          reg = json.loads(Path("config/tenants/registry.json").read_text(encoding="utf-8"))
+          deploy = str(reg.get("chat_gateway_deploy") or "").strip()
+          host = str(reg.get("chat_gateway_host") or "").strip()
+          need = deploy != "cloudrun" and host != "cloudrun"
+          print(f"need_host={'true' if need else 'false'}")
+          PY
+          echo "chat_gateway_deploy/host from registry — need_host=$(grep need_host "$GITHUB_OUTPUT" | tail -1)"
+
   host:
     name: Sync gateway + outbound auth
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: gate
+    if: needs.gate.outputs.need_host == 'true'
     runs-on: [self-hosted, hermes-host]
     timeout-minutes: 15
     steps:

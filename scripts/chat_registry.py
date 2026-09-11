@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "config" / "tenants" / "registry.json"
 TENANTS_DIR = ROOT / "config" / "tenants"
 BASE_PORT = 8081
-DEFAULT_GCP_PROJECT = "od-kansiot"
+DEFAULT_GCP_PROJECT = "opendoors-hermes-chat"
 
 
 def load_registry() -> dict:

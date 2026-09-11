@@ -7,6 +7,8 @@ make validate
 test -f .github/workflows/ci.yml
 test -f .github/workflows/tenant-gcp.yml
 test -f .github/workflows/sync-chat-users.yml
+test -f .github/workflows/deploy-cloudrun-gateway.yml
+test -f .github/actions/gcp-wif/action.yml
 test -f config/tenants/registry.json
 test -f docs/MULTI_TENANT.md
 echo "OK — standalone-ready"

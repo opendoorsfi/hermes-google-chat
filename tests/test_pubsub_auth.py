@@ -43,6 +43,7 @@ def test_publish_uses_registry_gcp_project() -> None:
     # Dry-run: script echoes project in first lines even if gcloud missing
     combined = (out.stdout or "") + (out.stderr or "")
     assert "opendoors-hermes-chat" in combined or out.returncode != 0
+    assert "projects/od-kansiot/topics" not in combined
 
 
 def test_setup_chat_pubsub_auth_script_exists() -> None:

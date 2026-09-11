@@ -12,7 +12,10 @@ on:
     branches: [main]
     paths:
       - .github/workflows/deploy-cloudrun-gateway.yml
+      - .github/actions/gcp-wif/action.yml
       - scripts/deploy_pubsub_cloudrun.sh
+      - scripts/github_actions_load_gcp_env.sh
+      - infra/setup_gcp.sh
       - deploy/**
 
 permissions:
@@ -23,6 +26,10 @@ concurrency:
   group: deploy-cloudrun-gateway
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
+
 jobs:
   deploy:
     name: Cloud Run hermes-gateway
@@ -32,22 +39,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
-
-      - uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/gcp-wif
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          wif_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
-
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT }}
 
       - name: Ensure LLM key in Secret Manager
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          GCP_PROJECT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['gcp_project'])" "${HUB}")"
+          export GCP_PROJECT
+          gcloud config set project "${GCP_PROJECT}" >/dev/null
           CURRENT="$(gcloud secrets versions access latest --secret=hermes-llm-api-key --project="${GCP_PROJECT}" 2>/dev/null || true)"
           if [[ -n "${OPENROUTER_API_KEY}" ]]; then
             echo -n "${OPENROUTER_API_KEY}" | gcloud secrets versions add hermes-llm-api-key \
@@ -67,6 +71,10 @@ jobs:
           EMAIL: opendoorsfinland@gmail.com
           TEXT: "Cloud Run gateway test $(date -u +%H:%M:%S)"
         run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          GCP_PROJECT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['gcp_project'])" "${HUB}")"
+          export GCP_PROJECT
+          gcloud config set project "${GCP_PROJECT}" >/dev/null
           gcloud run services describe hermes-gateway \
             --project="${GCP_PROJECT}" \
             --region=europe-north1 \
@@ -77,11 +85,14 @@ jobs:
       - name: Job summary
         if: always()
         run: |
+          HUB="$(python3 scripts/chat_registry.py hub-json)"
+          GCP_PROJECT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['gcp_project'])" "${HUB}")"
           URL="$(gcloud run services describe hermes-gateway --project="${GCP_PROJECT}" \
             --region=europe-north1 --format='value(status.url)' 2>/dev/null || true)"
           {
             echo "## Cloud Run Pub/Sub gateway"
             echo ""
+            echo "- Project: \`${GCP_PROJECT}\`"
             echo "- URL: \`${URL:-deploy epäonnistui}\`"
             echo "- Subscription: \`projects/${GCP_PROJECT}/subscriptions/hermes-chat-events-sub\`"
             echo "- Testaa Chatissa: **opendoors-hermes-chat** → Hei"

@@ -3,7 +3,7 @@ name: Sync Chat users
 # Tavoite: käyttäjä antaa vain sähköpostin → agentti commitoi registry.json → tämä workflow.
 # GCP + (valinnainen) Hermes-host self-hosted runner.
 #
-# GCP-projekti: config/tenants/registry.json → od-kansiot (hermes-chat).
+# GCP-projekti: config/tenants/registry.json (opendoors-hermes-chat).
 # WIF: secrets GCP_WIF_PROVIDER + GCP_DEPLOY_SA_EMAIL (ks. scripts/setup_github_wif.sh).
 
 on:
@@ -91,15 +91,10 @@ jobs:
 
       - run: python3 scripts/chat_registry.py generate-all
 
-      - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
-
-      - uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/gcp-wif
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          wif_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
-
-      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Provision Hermes Chat app (automatic from hub)
         env:
@@ -134,16 +129,10 @@ jobs:
       - name: Generate manifest
         run: python3 scripts/chat_registry.py generate-all
 
-      - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
-
-      - name: Authenticate to GCP (WIF)
-        uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/gcp-wif
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          wif_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
-
-      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Verify GCP access
         env:

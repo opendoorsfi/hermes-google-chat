@@ -7,15 +7,14 @@ Erillinen työkalu — **ei** liity [`opendoorsfi/moderate`](https://github.com/
 ## Arkkitehtuuri
 
 ```
-Google Chat → Tailscale Funnel (HTTPS)
-           → Caddy (/alice, /bob, /team)
-           → hermes gateway (per Linux-käyttäjä, localhost)
+Google Chat → Pub/Sub (opendoors-hermes-chat)
+           → hermes gateway (Cloud Run, tai host + Funnel)
            → olemassa oleva HERMES_HOME (LLM-avaimet, profiilit)
 ```
 
 - **Henkilöbotti:** oma GCP-projekti + DM
 - **Team-botti:** jaettu Chat-space
-- **Ei** Cloud Run -embedded agenttia tuotannossa
+- **Cloud Run** Pub/Sub-gateway kun host-runner (Mac) ei ole linjoilla; LLM-avain Cloud Runissa vain Secret Managerin kautta
 
 ## Käyttäjät (tavoite)
 

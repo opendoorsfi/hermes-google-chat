@@ -7,9 +7,9 @@
 | Chat-app | GCP-projekti | Repo |
 |----------|--------------|------|
 | Moderointi | `od-azuracast-sync` (tms.) | `opendoorsfi/moderate` |
-| **hermes-chat** | **`od-kansiot`** | `opendoorsfi/hermes-google-chat` |
+| **opendoors-hermes-chat** | **`opendoors-hermes-chat`** | `opendoorsfi/hermes-google-chat` |
 
-Yksi Chat-app (**hermes-chat**) palvelee **kaikkia** Hermes-käyttäjiä samassa projektissa.
+Yksi Chat-app (**opendoors-hermes-chat**) palvelee **kaikkia** Hermes-käyttäjiä samassa projektissa.
 
 ## Lisää käyttäjä GitHub Hubista
 
@@ -19,19 +19,19 @@ Yksi Chat-app (**hermes-chat**) palvelee **kaikkia** Hermes-käyttäjiä samassa
 
 ## Console (kerran per projekti)
 
-https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=od-kansiot
+https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=opendoors-hermes-chat
 
 | Kenttä | Arvo |
 |--------|------|
-| App name | **hermes-chat** |
+| App name | **opendoors-hermes-chat** |
 | Connection | Cloud Pub/Sub |
-| Topic | `projects/od-kansiot/topics/hermes-chat-events` |
+| Topic | `projects/opendoors-hermes-chat/topics/hermes-chat-events` |
 | Visibility | Kaikki registryn käyttäjät (tai Google Group) |
 | Status | Live |
 
 ## Chatissa
 
-https://chat.google.com/ → Find apps → **hermes-chat** → Message → `Hei`
+https://chat.google.com/ → Find apps → **opendoors-hermes-chat** → Message → `Hei`
 
 ## Uusi host (Mac / Linux)
 

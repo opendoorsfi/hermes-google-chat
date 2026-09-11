@@ -1,0 +1,32 @@
+name: gcp-wif-from-registry
+description: WIF + gcloud pinned to registry.json gcp_project (not leftover od-kansiot env)
+
+inputs:
+  wif_provider:
+    required: true
+  service_account:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Load GCP from registry
+      id: gcp
+      shell: bash
+      run: bash scripts/github_actions_load_gcp_env.sh
+
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.wif_provider }}
+        service_account: ${{ inputs.service_account }}
+        project_id: ${{ steps.gcp.outputs.GCP_PROJECT }}
+        create_credentials_file: true
+        export_environment_variables: true
+
+    - uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ steps.gcp.outputs.GCP_PROJECT }}
+
+    - name: Pin GCP project after setup-gcloud
+      shell: bash
+      run: bash scripts/github_actions_load_gcp_env.sh

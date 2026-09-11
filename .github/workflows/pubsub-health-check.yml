@@ -22,17 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
-
-      - uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/gcp-wif
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          wif_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
-
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT }}
 
       - name: Inspect Chat GCP
         run: bash scripts/inspect_chat_gcp.sh | tee inspect.txt
@@ -48,7 +41,7 @@ jobs:
           {
             echo "## Pub/Sub health"
             echo ""
-            echo "Test-viesti julkaistu topicille → gateway agent-macbook-pro:lla pitää vastata Chatissa."
+            echo "Test-viesti julkaistu topicille → Cloud Run / host -gatewayin pitää vastata Chatissa."
             echo ""
             echo '```'
             tail -40 inspect.txt

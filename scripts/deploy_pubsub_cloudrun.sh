@@ -10,9 +10,16 @@ GOOGLE_CHAT_ALLOWED_USERS="$(python3 -c "import json,sys; print(json.loads(sys.a
 CHAT_PUBSUB_SUB="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['pubsub_sub'])" "${HUB}")"
 
 export GCP_PROJECT GCP_REGION="${GCP_REGION:-europe-north1}"
+export CLOUDSDK_CORE_PROJECT="${GCP_PROJECT}"
+export CLOUDSDK_PROJECT="${GCP_PROJECT}"
+export GCLOUD_PROJECT="${GCP_PROJECT}"
+export GOOGLE_CLOUD_PROJECT="${GCP_PROJECT}"
 export HERMES_CHAT_TRANSPORT=pubsub HERMES_GATEWAY_MODE=embedded
 export GOOGLE_CHAT_PROJECT_ID="${GCP_PROJECT}"
 export GOOGLE_CHAT_SUBSCRIPTION_NAME GOOGLE_CHAT_ALLOWED_USERS CHAT_PUBSUB_SUB
+if command -v gcloud >/dev/null 2>&1; then
+  gcloud config set project "${GCP_PROJECT}" >/dev/null
+fi
 
 echo "==> Cloud Run Pub/Sub gateway"
 echo "    project:      ${GCP_PROJECT}"

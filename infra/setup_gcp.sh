@@ -2,7 +2,7 @@
 # One-shot GCP infra for hermes-google-chat.
 #
 # Default: Pub/Sub Chat inbound (Hermes official guide).
-#   export GCP_PROJECT=od-kansiot
+#   export GCP_PROJECT=opendoors-hermes-chat
 #   export GCP_REGION=europe-north1
 #   bash infra/setup_gcp.sh
 #
@@ -67,31 +67,53 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
       --message-retention-duration=7d
   fi
 
+  gcloud_iam_retry() {
+    local attempt=1
+    local max=6
+    local delay=2
+    local err
+    err="$(mktemp)"
+    while true; do
+      if "$@" >/dev/null 2>"${err}"; then
+        rm -f "${err}"
+        return 0
+      fi
+      if grep -qiE 'ABORTED|concurrent policy|ETag' "${err}" && [[ "${attempt}" -lt "${max}" ]]; then
+        echo "  IAM concurrent update — retry ${attempt}/${max}"
+        sleep "${delay}"
+        delay=$((delay * 2))
+        attempt=$((attempt + 1))
+        continue
+      fi
+      cat "${err}" >&2
+      rm -f "${err}"
+      return 1
+    done
+  }
+
   echo "==> IAM topic: ${CHAT_PUSH_SA} → publisher"
   CHAT_PUSH_IAM_OK=1
-  if ! gcloud pubsub topics add-iam-policy-binding "${TOPIC}" \
+  if ! gcloud_iam_retry gcloud pubsub topics add-iam-policy-binding "${TOPIC}" \
     --project="${GCP_PROJECT}" \
     --member="serviceAccount:${CHAT_PUSH_SA}" \
     --role="roles/pubsub.publisher" \
-    --quiet 2>/tmp/hermes_chat_push_iam.err; then
+    --quiet; then
     CHAT_PUSH_IAM_OK=0
     echo ""
     echo "VAROITUS: Chat Pub/Sub publisher -IAM epäonnistui (org policy?)."
     echo "  Hermes Step 5: ${CHAT_PUSH_SA} → roles/pubsub.publisher topicilla ${TOPIC}"
     echo "  Org policy: constraints/iam.allowedPolicyMemberDomains — salli system.gserviceaccount.com"
-    sed 's/^/  /' /tmp/hermes_chat_push_iam.err || true
     echo ""
   fi
-  rm -f /tmp/hermes_chat_push_iam.err
 
   echo "==> IAM subscription: ${SA_EMAIL} → subscriber + viewer"
-  gcloud pubsub subscriptions add-iam-policy-binding "${SUB}" \
+  gcloud_iam_retry gcloud pubsub subscriptions add-iam-policy-binding "${SUB}" \
     --project="${GCP_PROJECT}" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/pubsub.subscriber" \
     --quiet
 
-  gcloud pubsub subscriptions add-iam-policy-binding "${SUB}" \
+  gcloud_iam_retry gcloud pubsub subscriptions add-iam-policy-binding "${SUB}" \
     --project="${GCP_PROJECT}" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/pubsub.viewer" \

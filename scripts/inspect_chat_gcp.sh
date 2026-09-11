@@ -26,9 +26,7 @@ section "Pub/Sub subscription: ${SUB}"
 if gcloud pubsub subscriptions describe "${SUB}" --project="${GCP_PROJECT}" --format=yaml 2>/tmp/hermes_inspect_sub.err; then
   gcloud pubsub subscriptions describe "${SUB}" --project="${GCP_PROJECT}" --format=yaml
   echo ""
-  echo "Undelivered (approx):"
-  gcloud pubsub subscriptions pull "${SUB}" --project="${GCP_PROJECT}" --limit=1 --auto-ack=false 2>/dev/null \
-    && echo "(viestejä jonossa — pull onnistui)" || echo "(ei viestejä tai ei pull-oikeutta)"
+  echo "Ei pullata subscriptionia (gateway kuluttaa jonon)."
 else
   echo "VAROITUS: subscription puuttuu tai ei oikeuksia"
   sed 's/^/  /' /tmp/hermes_inspect_sub.err || true
