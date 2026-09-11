@@ -31,7 +31,14 @@ git pull --ff-only 2>/dev/null || true
 python3 scripts/chat_registry.py generate-all >/dev/null 2>&1 || true
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  bash scripts/bootstrap_hermes_mac.sh "${EMAIL}"
+  TRANSPORT="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['default_chat_transport'])")"
+  GATEWAY_HOST="$(python3 scripts/chat_registry.py hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['chat_gateway_host'])")"
+  LOCAL_HOST="${HERMES_HOST_ID:-$(python3 scripts/chat_registry.py local-host-id 2>/dev/null || true)}"
+  if [[ "${TRANSPORT}" == "pubsub" && ( -z "${LOCAL_HOST}" || "${LOCAL_HOST}" == "${GATEWAY_HOST}" ) ]]; then
+    bash scripts/sync_mac_pubsub_from_registry.sh
+  else
+    bash scripts/bootstrap_hermes_mac.sh "${EMAIL}"
+  fi
 else
   if [[ "${EUID}" -ne 0 ]]; then
     echo "==> Linux: tarvitaan sudo (systemd + funnel)"

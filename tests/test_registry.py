@@ -16,11 +16,12 @@ def test_registry_json_exists() -> None:
     assert "users" in data
     assert "hosts" in data
     assert "funnel_base_url" in data
+    assert data.get("chat_gateway_host") == "agent-mac"
 
 
 def test_ipad_email_mapping() -> None:
     out = subprocess.run(
-        ["python3", "scripts/chat_registry.py", "add", "ipad@info.opendoors.fi", "work-h"],
+        ["python3", "scripts/chat_registry.py", "add", "ipad@info.opendoors.fi", "agent-mac"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -31,13 +32,13 @@ def test_ipad_email_mapping() -> None:
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
     assert m["GCP_PROJECT"] == "opendoors-hermes-chat"
     assert m["SA_NAME"] == "hermes-chat-bot"
-    assert m["PORT"] == "8081"
-    assert m["HOST"] == "work-h"
-    assert m["PLATFORM"] == "linux"
+    assert m["PORT"] == "8642"
+    assert m["HOST"] == "agent-mac"
+    assert m["PLATFORM"] == "darwin"
     assert m["CHAT_APP_DISPLAY_NAME"] == "opendoors-hermes-chat"
-    assert "/ipad/api/platforms/google_chat/events" in (
-        f"{m['FUNNEL_BASE_URL']}{m['PATH_PREFIX']}/api/platforms/google_chat/events"
-    )
+    assert m["FUNNEL_BASE_URL"] == "https://agent-macbook-pro.tail28712d.ts.net"
+    events = f"{m['FUNNEL_BASE_URL']}/api/platforms/google_chat/events"
+    assert events == "https://agent-macbook-pro.tail28712d.ts.net/api/platforms/google_chat/events"
     env_path = ROOT / "config" / "tenants" / "ipad.env"
     assert env_path.is_file()
     assert "CHAT_APP_DISPLAY_NAME=opendoors-hermes-chat" in env_path.read_text(encoding="utf-8")
@@ -52,7 +53,7 @@ def test_natalia_mac_mapping() -> None:
         check=True,
     )
     assert out.returncode == 0
-    env_path = ROOT / "config" / "tenants" / "natalia.env"
+    env_path = ROOT / "config/tenants" / "natalia.env"
     assert env_path.is_file()
     text = env_path.read_text(encoding="utf-8")
     assert "TENANT=natalia" in text
@@ -82,7 +83,7 @@ def test_sync_workflow_exists() -> None:
     assert "registry.json" in wf
     assert "workflow_dispatch" in wf
     assert "self-hosted" in host_wf
-    assert "repair_mac_chat.sh" in host_wf or "sync_mac_from_registry.sh" in host_wf
+    assert "sync_mac_pubsub_from_registry.sh" in host_wf
     assert "ensure_chat_sa_artifact.sh" in wf or "hermes-chat-bot-sa.json" in wf
     assert 'SKIP_SA_KEY: "1"' not in wf
 
@@ -100,7 +101,7 @@ def test_extra_allowed_users() -> None:
     assert "opendoorsfinland@gmail.com" in h["allowed_users"]
 
 
-def test_hub_json_od_kansiot() -> None:
+def test_hub_json_opendoors_hermes_chat() -> None:
     out = subprocess.run(
         ["python3", "scripts/chat_registry.py", "hub-json"],
         cwd=ROOT,
@@ -114,7 +115,7 @@ def test_hub_json_od_kansiot() -> None:
     assert "ipad@info.opendoors.fi" in h["allowed_users"]
     assert "opendoorsfinland@gmail.com" in h["allowed_users"]
     assert h["transport"] == "pubsub"
-    assert h["chat_gateway_host"] == "work-h"
+    assert h["chat_gateway_host"] == "agent-mac"
     assert h["primary_tenant"] == "ipad"
     assert h["pubsub_subscription_full"] == (
         "projects/opendoors-hermes-chat/subscriptions/hermes-chat-events-sub"
@@ -130,7 +131,7 @@ def test_inbound_url_command() -> None:
         check=True,
     )
     assert out.stdout.strip() == (
-        "https://ubuntu-work-h.tail28712d.ts.net/ipad/api/platforms/google_chat/events"
+        "https://agent-macbook-pro.tail28712d.ts.net/api/platforms/google_chat/events"
     )
 
 

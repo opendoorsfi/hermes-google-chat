@@ -226,6 +226,55 @@ def registry_chat_app_name(reg: dict | None = None) -> str:
     return tenant_manifest(users[0], 0, host_cfg, gcp_project, reg)["CHAT_APP_DISPLAY_NAME"]
 
 
+def tailscale_self_hostname() -> str:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        data = json.loads(out.stdout)
+        dns = str(data.get("Self", {}).get("DNSName", "")).rstrip(".")
+        if dns:
+            return dns.split(".", 1)[0]
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError):
+        pass
+    try:
+        out = subprocess.run(
+            ["tailscale", "status", "--self"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        return out.stdout.strip().split()[0]
+    except (OSError, subprocess.SubprocessError, IndexError, ValueError):
+        return ""
+
+
+def local_host_id(reg: dict | None = None) -> str:
+    reg = reg or load_registry()
+    explicit = str(reg.get("HERMES_HOST_ID", "")).strip()
+    if explicit:
+        return explicit
+    hostname = tailscale_self_hostname().lower()
+    if not hostname:
+        return ""
+    hosts = reg.get("hosts") or {}
+    for host_id, cfg in hosts.items():
+        ts = str(cfg.get("tailscale_hostname", "")).strip().lower()
+        if ts and ts == hostname:
+            return host_id
+        funnel = str(cfg.get("funnel_base_url", "")).strip().lower()
+        if funnel and hostname in funnel:
+            return host_id
+    return ""
+
+
 def gateway_host_id(reg: dict | None = None) -> str:
     """Host that runs the shared Hermes gateway (Pub/Sub pull — one process per Chat app)."""
     reg = reg or load_registry()
@@ -337,7 +386,7 @@ def chat_events_url(manifest: dict[str, str]) -> str:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|github-env|inbound-url|summary|host-users HOST",
+            "Usage: chat_registry.py generate-all|list-ids|add EMAIL [HOST]|matrix-json|hub-json|github-env|inbound-url|local-host-id|summary|host-users HOST",
             file=sys.stderr,
         )
         return 1
@@ -395,6 +444,11 @@ def main() -> int:
     if cmd == "inbound-url":
         print(inbound_events_url())
         return 0
+    if cmd == "local-host-id":
+        hid = local_host_id()
+        if hid:
+            print(hid)
+        return 0 if hid else 1
     if cmd == "summary":
         reg = load_registry()
         gcp_project = registry_gcp_project(reg)

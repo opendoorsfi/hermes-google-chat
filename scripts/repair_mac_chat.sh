@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mac-host: Pub/Sub-moodissa gateway ajetaan work-h:llä — tämä vain riippuvuudet + outbound.
+# Mac-host: jos ei gateway-host, vain riippuvuudet + outbound (Pub/Sub gateway toisella hostilla).
 #
 #   cd ~/hermes-google-chat && git pull && bash scripts/repair_mac_chat.sh
 set -euo pipefail
@@ -50,7 +50,7 @@ if [[ "${TRANSPORT}" == "pubsub" ]]; then
   fi
   bash scripts/setup_chat_outbound_auth.sh "${TENANT}" --restart 2>/dev/null || true
   echo ""
-  echo "OK — käytä Chatissa: Find apps → hermes-chat (gateway work-h:llä)."
+  echo "OK — outbound synkattu (Pub/Sub gateway hostilla ${GATEWAY_HOST})."
   python3 scripts/chat_registry.py summary
   exit 0
 fi

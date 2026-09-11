@@ -18,7 +18,11 @@ ALLOWED="${GOOGLE_CHAT_ALLOWED_USERS}"
 if [[ "${TRANSPORT}" == "pubsub" ]]; then
   ALLOWED="$(python3 "${ROOT}/scripts/chat_registry.py" hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['allowed_users'])")"
   SUB_FULL="projects/${GCP_PROJECT}/subscriptions/${CHAT_PUBSUB_SUB}"
-  SA_JSON="/home/${LINUX_USER}/.hermes/secrets/google-chat-sa.json"
+  if [[ "${PLATFORM:-linux}" == "darwin" ]]; then
+    SA_JSON="${HERMES_HOME:-${HOME}/.hermes}/secrets/google-chat-sa.json"
+  else
+    SA_JSON="/home/${LINUX_USER}/.hermes/secrets/google-chat-sa.json"
+  fi
   cat <<EOF
 # --- Google Chat tenant ${TENANT} (generated, Pub/Sub) ---
 GOOGLE_CHAT_PROJECT_ID=${GCP_PROJECT}

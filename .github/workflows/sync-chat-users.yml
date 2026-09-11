@@ -225,7 +225,7 @@ jobs:
               echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
             fi
             if [[ "${{ needs.register.outputs.chat_transport }}" == "pubsub" ]]; then
-              echo "### Host (Pub/Sub gateway — work-h)"
+              echo "### Host (Pub/Sub gateway — registry chat_gateway_host)"
               echo "- \`python -m plugins.platforms.google_chat.oauth --install-deps\`"
               echo "- \`hermes gateway\` (tai systemd hermes-gateway@hermes-ipad)"
               echo "- SA JSON: Actions artefakti → \`~/.hermes/secrets/google-chat-sa.json\`"

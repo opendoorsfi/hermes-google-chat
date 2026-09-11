@@ -6,16 +6,17 @@
   "shared_chat_sa": "hermes-chat-bot",
   "chat_app_display_name": "opendoors-hermes-chat",
   "default_chat_transport": "pubsub",
+  "chat_gateway_host": "agent-mac",
   "chat_pubsub_topic": "hermes-chat-events",
   "chat_pubsub_subscription": "hermes-chat-events-sub",
-  "funnel_base_url": "https://ubuntu-work-h.tail28712d.ts.net",
+  "funnel_base_url": "https://agent-macbook-pro.tail28712d.ts.net",
   "extra_allowed_users": [
     "opendoorsfinland@gmail.com"
   ],
   "users": [
     {
       "email": "ipad@info.opendoors.fi",
-      "host": "work-h"
+      "host": "agent-mac"
     },
     {
       "email": "natalia@info.opendoors.fi",
@@ -23,18 +24,22 @@
     }
   ],
   "hosts": {
-    "work-h": {
-      "platform": "linux",
-      "funnel_base_url": "https://ubuntu-work-h.tail28712d.ts.net",
-      "bootstrap": "scripts/bootstrap_hermes_host.sh"
+    "agent-mac": {
+      "platform": "darwin",
+      "tailscale_hostname": "agent-macbook-pro",
+      "funnel_base_url": "https://agent-macbook-pro.tail28712d.ts.net",
+      "bootstrap": "scripts/sync_mac_pubsub_from_registry.sh",
+      "path_prefix_mode": "root",
+      "gateway_port": 8642
     },
     "natalia-mac": {
       "platform": "darwin",
+      "tailscale_hostname": "tommis-macbook-pro",
       "funnel_base_url": "https://tommis-macbook-pro.tail28712d.ts.net",
       "bootstrap": "scripts/bootstrap_hermes_mac.sh",
       "path_prefix_mode": "root",
       "gateway_port": 8642
     }
   },
-  "sync_version": 31
+  "sync_version": 32
 }
