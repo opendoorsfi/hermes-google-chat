@@ -29,7 +29,7 @@ def test_ipad_email_mapping() -> None:
     m = json.loads(out.stdout)
     assert m["TENANT"] == "ipad"
     assert m["GOOGLE_CHAT_ALLOWED_USERS"] == "ipad@info.opendoors.fi"
-    assert m["GCP_PROJECT"] == "od-kansiot"
+    assert m["GCP_PROJECT"] == "opendoors-hermes-chat"
     assert m["SA_NAME"] == "hermes-chat-bot"
     assert m["PORT"] == "8081"
     assert m["HOST"] == "work-h"
@@ -96,14 +96,14 @@ def test_hub_json_od_kansiot() -> None:
         check=True,
     )
     h = json.loads(out.stdout)
-    assert h["gcp_project"] == "od-kansiot"
+    assert h["gcp_project"] == "opendoors-hermes-chat"
     assert h["chat_app_display_name"] == "hermes-chat"
     assert "ipad@info.opendoors.fi" in h["allowed_users"]
     assert h["transport"] == "pubsub"
     assert h["chat_gateway_host"] == "work-h"
     assert h["primary_tenant"] == "ipad"
     assert h["pubsub_subscription_full"] == (
-        "projects/od-kansiot/subscriptions/hermes-chat-events-sub"
+        "projects/opendoors-hermes-chat/subscriptions/hermes-chat-events-sub"
     )
 
 

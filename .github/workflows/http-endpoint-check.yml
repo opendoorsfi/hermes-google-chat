@@ -18,7 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip when Pub/Sub transport
+        id: mode
+        run: |
+          TRANSPORT="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['default_chat_transport'])")"
+          if [[ "${TRANSPORT}" == "pubsub" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "OK — Pub/Sub mode, HTTP endpoint check skipped"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
       - name: Check Chat inbound HTTP URL
+        if: steps.mode.outputs.skip != 'true'
         run: |
           INBOUND="$(python3 scripts/chat_registry.py inbound-url)"
           HOST="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json')).get('chat_inbound_host',''))")"

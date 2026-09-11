@@ -1,7 +1,8 @@
 {
-  "gcp_project": "od-kansiot",
-  "github_deploy_sa": "github-hermes-deploy@od-kansiot.iam.gserviceaccount.com",
-  "wif_provider": "projects/225375703814/locations/global/workloadIdentityPools/github-pool/providers/github-provider",
+  "gcp_project": "opendoors-hermes-chat",
+  "github_deploy_sa": "",
+  "wif_provider": "",
+  "bootstrap_requested": true,
   "shared_chat_sa": "hermes-chat-bot",
   "chat_app_display_name": "hermes-chat",
   "default_chat_transport": "pubsub",
@@ -32,5 +33,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 25
+  "sync_version": 26
 }

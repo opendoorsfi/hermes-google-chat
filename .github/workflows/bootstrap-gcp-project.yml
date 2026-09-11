@@ -1,0 +1,98 @@
+name: Bootstrap GCP project (kerran)
+
+# Gmail-GCP-projekti ilman org policy -estoja.
+# Sinä: GCP_BOOTSTRAP_SA_JSON secret (Owner-SA JSON) + registry bootstrap_requested=true
+# Tämä workflow: Pub/Sub + WIF → commit registry → Sync Chat users automaattisesti.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - config/tenants/registry.json
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  gate:
+    name: Check bootstrap_requested
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      gcp_project: ${{ steps.gate.outputs.gcp_project }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gate
+        run: |
+          REQ="$(python3 -c "import json; print('true' if json.load(open('config/tenants/registry.json')).get('bootstrap_requested') else 'false')")"
+          GCP="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['gcp_project'])")"
+          echo "gcp_project=${GCP}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || [[ "${REQ}" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  bootstrap:
+    name: GCP infra + WIF (${{ needs.gate.outputs.gcp_project }})
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth (bootstrap SA key)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Bootstrap GCP (Pub/Sub + WIF)
+        env:
+          GCP_PROJECT: ${{ needs.gate.outputs.gcp_project }}
+        run: bash scripts/bootstrap_gcp_project.sh | tee bootstrap.log
+
+      - name: Commit WIF to registry
+        env:
+          GCP_PROJECT: ${{ needs.gate.outputs.gcp_project }}
+        run: |
+          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT}" --format='value(projectNumber)')"
+          WIF="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          DEPLOY="github-hermes-deploy@${GCP_PROJECT}.iam.gserviceaccount.com"
+          python3 scripts/chat_registry.py set-gcp-wif "${WIF}" "${DEPLOY}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/tenants/registry.json
+          git diff --cached --quiet && echo "No registry change" && exit 0
+          git commit -m "chore: GCP bootstrap WIF for ${GCP_PROJECT}"
+          git push
+
+      - name: Summary
+        env:
+          GCP_PROJECT: ${{ needs.gate.outputs.gcp_project }}
+        run: |
+          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT}" --format='value(projectNumber)')"
+          WIF="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          CONSOLE="https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=${GCP_PROJECT}"
+          {
+            echo "## Bootstrap valmis — ${GCP_PROJECT}"
+            echo
+            echo "WIF on registryssä → **Sync Chat users** käynnistyy automaattisesti."
+            echo
+            echo "**Sinun Console Save (kerran):** [Chat API Configuration](${CONSOLE})"
+            echo "- Connection → Pub/Sub → \`projects/${GCP_PROJECT}/topics/hermes-chat-events\`"
+            echo "- Visibility → registryn käyttäjät"
+            echo
+            echo '```'
+            tail -30 bootstrap.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-gcp-${{ needs.gate.outputs.gcp_project }}
+          path: bootstrap.log
+          retention-days: 30

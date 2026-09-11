@@ -183,6 +183,17 @@ def registry_wif_provider(reg: dict | None = None) -> str:
     return str(reg.get("wif_provider", "")).strip()
 
 
+def set_gcp_wif(wif: str, deploy_sa: str, *, bootstrap_requested: bool = False) -> dict:
+    """Persist WIF + deploy SA after GCP bootstrap (GitHub Actions commits this)."""
+    reg = load_registry()
+    reg["wif_provider"] = wif.strip()
+    reg["github_deploy_sa"] = deploy_sa.strip()
+    reg["bootstrap_requested"] = bootstrap_requested
+    reg["sync_version"] = int(reg.get("sync_version", 0)) + 1
+    REGISTRY_PATH.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
+    return reg
+
+
 def chat_transport(reg: dict | None = None) -> str:
     reg = reg or load_registry()
     return str(reg.get("default_chat_transport", "pubsub")).strip() or "pubsub"
@@ -346,6 +357,13 @@ def main() -> int:
         print(f"GCP_DEPLOY_SA_EMAIL={meta['github_deploy_sa']}")
         if meta.get("wif_provider"):
             print(f"GCP_WIF_PROVIDER={meta['wif_provider']}")
+        return 0
+    if cmd == "set-gcp-wif":
+        if len(sys.argv) < 4:
+            print("Usage: chat_registry.py set-gcp-wif WIF_PROVIDER DEPLOY_SA_EMAIL", file=sys.stderr)
+            return 1
+        reg = set_gcp_wif(sys.argv[2], sys.argv[3], bootstrap_requested=False)
+        print(json.dumps({"wif_provider": reg["wif_provider"], "github_deploy_sa": reg["github_deploy_sa"]}))
         return 0
     if cmd == "matrix-json":
         ids = list_tenant_ids()
