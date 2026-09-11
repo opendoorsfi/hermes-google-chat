@@ -68,14 +68,17 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
   fi
 
   echo "==> IAM topic: ${CHAT_PUSH_SA} → publisher"
+  CHAT_PUSH_IAM_OK=1
   if ! gcloud pubsub topics add-iam-policy-binding "${TOPIC}" \
     --project="${GCP_PROJECT}" \
     --member="serviceAccount:${CHAT_PUSH_SA}" \
     --role="roles/pubsub.publisher" \
     --quiet 2>/tmp/hermes_chat_push_iam.err; then
+    CHAT_PUSH_IAM_OK=0
     echo ""
     echo "VAROITUS: Chat Pub/Sub publisher -IAM epäonnistui (org policy?)."
-    echo "  Tarkista org policy: chat-api-push@system.gserviceaccount.com → roles/pubsub.publisher topicilla"
+    echo "  Hermes Step 5: ${CHAT_PUSH_SA} → roles/pubsub.publisher topicilla ${TOPIC}"
+    echo "  Org policy: constraints/iam.allowedPolicyMemberDomains — salli system.gserviceaccount.com"
     sed 's/^/  /' /tmp/hermes_chat_push_iam.err || true
     echo ""
   fi
@@ -146,11 +149,16 @@ done
 
 if ! gcloud artifacts repositories describe "${AR_REPO}" \
   --location="${GCP_REGION}" --project="${GCP_PROJECT}" &>/dev/null; then
-  gcloud artifacts repositories create "${AR_REPO}" \
+  if ! gcloud artifacts repositories create "${AR_REPO}" \
     --project="${GCP_PROJECT}" \
     --location="${GCP_REGION}" \
     --repository-format=docker \
-    --description="Hermes Google Chat container images"
+    --description="Hermes Google Chat container images" \
+    2>/tmp/hermes_ar_create.err; then
+    echo "VAROITUS: Artifact Registry -repo epäonnistui (ei pakollinen Pub/Sub-hostille)."
+    sed 's/^/  /' /tmp/hermes_ar_create.err || true
+    rm -f /tmp/hermes_ar_create.err
+  fi
 fi
 
 mkdir -p "${ROOT}/out"
@@ -166,6 +174,9 @@ chmod 600 "${ROOT}/out/gcp_setup.env"
 echo ""
 echo "OK — infra valmis (transport=${HERMES_CHAT_TRANSPORT})."
 echo "  SA: ${SA_EMAIL}"
+if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" && "${CHAT_PUSH_IAM_OK:-1}" == "0" ]]; then
+  echo "  BLOCKER: chat-api-push publisher IAM puuttuu — Chat ei lähetä viestejä topicille"
+fi
 echo ""
 if [[ "${HERMES_CHAT_TRANSPORT}" == "http" ]]; then
   echo "Seuraavaksi:"

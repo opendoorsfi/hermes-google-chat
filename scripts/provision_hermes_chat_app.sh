@@ -49,7 +49,11 @@ cat > "${OUT_DIR}/CHAT_APP_SETUP.md" <<EOF
 > **Ei moderointi-bottia.** Moderointi on **toisessa GCP-projektissa** (\`opendoorsfi/moderate\`).
 > Tämä app kuuluu projektiin **\`${GCP_PROJECT}\`**.
 
-GitHub Actions loi Pub/Sub + SA + IAM. **Console-Save** (kerran) rekisteröi botin Chatissa.
+GitHub Actions loi Pub/Sub + SA + IAM (Steps 2–6). **Console-Save** (kerran) rekisteröi botin Chatissa.
+
+> **Org policy (od-kansiot):** jos Step 5 epäonnistui CI-logissa, org adminin pitää sallia
+> \`chat-api-push@system.gserviceaccount.com\` constraintissa \`iam.allowedPolicyMemberDomains\`
+> ja Step 3 vaatii SA JSON -avaimen (\`iam.disableServiceAccountKeyCreation\` pois tai avain käsin).
 
 ## Console (kopioi arvot → Save)
 
