@@ -81,9 +81,19 @@ jobs:
           fi
 
       - name: Deploy Pub/Sub gateway
+        env:
+          GCP_BOOTSTRAP_SA_JSON: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
         run: |
           set -o pipefail
+          # Bootstrap-SA:lla varmistetaan image push + Cloud Run (WIF-token ei aina näe tuoreita IAM-muutoksia).
+          if [[ -n "${GCP_BOOTSTRAP_SA_JSON}" ]]; then
+            echo "${GCP_BOOTSTRAP_SA_JSON}" > /tmp/bootstrap-sa.json
+            chmod 600 /tmp/bootstrap-sa.json
+            gcloud auth activate-service-account --key-file=/tmp/bootstrap-sa.json --quiet
+            bash scripts/github_actions_load_gcp_env.sh
+          fi
           bash scripts/deploy_pubsub_cloudrun.sh 2>&1 | tee deploy.log
+          rm -f /tmp/bootstrap-sa.json
 
       - name: Verify Cloud Run + publish test
         env:
