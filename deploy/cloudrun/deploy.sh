@@ -55,8 +55,10 @@ ensure_artifact_registry() {
 }
 
 build_image() {
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    echo "==> Build ${IMAGE} (local Docker — GitHub Actions)"
+  local active_account
+  active_account="$(gcloud config get-value account 2>/dev/null || true)"
+  if [[ -n "${GITHUB_ACTIONS:-}" && "${active_account}" != *bootstrap* ]]; then
+    echo "==> Build ${IMAGE} (local Docker — GitHub Actions / WIF)"
     ensure_artifact_registry
     gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin \
       "https://${GCP_REGION}-docker.pkg.dev"
@@ -64,6 +66,7 @@ build_image() {
     docker push "${IMAGE}"
   else
     echo "==> Build ${IMAGE} (Cloud Build)"
+    ensure_artifact_registry
     gcloud builds submit "${ROOT}" \
       --project="${GCP_PROJECT}" \
       --config="${ROOT}/deploy/cloudbuild.yaml" \
