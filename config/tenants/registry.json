@@ -6,7 +6,8 @@
   "shared_chat_sa": "hermes-chat-bot",
   "chat_app_display_name": "opendoors-hermes-chat",
   "default_chat_transport": "pubsub",
-  "chat_gateway_host": "agent-mac",
+  "chat_gateway_host": "cloudrun",
+  "chat_gateway_deploy": "cloudrun",
   "chat_pubsub_topic": "hermes-chat-events",
   "chat_pubsub_subscription": "hermes-chat-events-sub",
   "funnel_base_url": "https://agent-macbook-pro.tail28712d.ts.net",
@@ -32,6 +33,13 @@
       "path_prefix_mode": "root",
       "gateway_port": 8642
     },
+    "cloudrun": {
+      "platform": "cloudrun",
+      "funnel_base_url": "https://hermes-gateway.run.app",
+      "bootstrap": "scripts/deploy_pubsub_cloudrun.sh",
+      "path_prefix_mode": "root",
+      "gateway_port": 8080
+    },
     "natalia-mac": {
       "platform": "darwin",
       "tailscale_hostname": "tommis-macbook-pro",
@@ -41,5 +49,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 35
+  "sync_version": 36
 }

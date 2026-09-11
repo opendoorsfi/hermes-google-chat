@@ -16,7 +16,8 @@ def test_registry_json_exists() -> None:
     assert "users" in data
     assert "hosts" in data
     assert "funnel_base_url" in data
-    assert data.get("chat_gateway_host") == "agent-mac"
+    assert data.get("chat_gateway_host") == "cloudrun"
+    assert data.get("chat_gateway_deploy") == "cloudrun"
 
 
 def test_ipad_email_mapping() -> None:
@@ -115,7 +116,7 @@ def test_hub_json_opendoors_hermes_chat() -> None:
     assert "ipad@info.opendoors.fi" in h["allowed_users"]
     assert "opendoorsfinland@gmail.com" in h["allowed_users"]
     assert h["transport"] == "pubsub"
-    assert h["chat_gateway_host"] == "agent-mac"
+    assert h["chat_gateway_host"] == "cloudrun"
     assert h["primary_tenant"] == "ipad"
     assert h["pubsub_subscription_full"] == (
         "projects/opendoors-hermes-chat/subscriptions/hermes-chat-events-sub"

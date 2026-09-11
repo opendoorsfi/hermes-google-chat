@@ -1,0 +1,94 @@
+name: Deploy Cloud Run Pub/Sub gateway
+
+# Gateway Cloud Runissa — ei vaadi agent-macbook-pro runneria.
+# Ajetaan automaattisesti Sync Chat users -workflow'n jälkeen.
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Sync Chat users"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/deploy-cloudrun-gateway.yml
+      - scripts/deploy_pubsub_cloudrun.sh
+      - deploy/**
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloudrun-gateway
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Cloud Run hermes-gateway
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Ensure LLM key in Secret Manager
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          CURRENT="$(gcloud secrets versions access latest --secret=hermes-llm-api-key --project="${GCP_PROJECT}" 2>/dev/null || true)"
+          if [[ -n "${OPENROUTER_API_KEY}" ]]; then
+            echo -n "${OPENROUTER_API_KEY}" | gcloud secrets versions add hermes-llm-api-key \
+              --data-file=- --project="${GCP_PROJECT}"
+            echo "OK — hermes-llm-api-key päivitetty GitHub secretistä"
+          elif [[ "${CURRENT}" == REPLACE_WITH_* || -z "${CURRENT}" ]]; then
+            echo "::warning::hermes-llm-api-key on placeholder — gateway käynnistyy mutta ei vastaa ennen avaimen asetusta"
+          else
+            echo "OK — hermes-llm-api-key on Secret Managerissa"
+          fi
+
+      - name: Deploy Pub/Sub gateway
+        run: bash scripts/deploy_pubsub_cloudrun.sh | tee deploy.log
+
+      - name: Verify Cloud Run + publish test
+        env:
+          EMAIL: opendoorsfinland@gmail.com
+          TEXT: "Cloud Run gateway test $(date -u +%H:%M:%S)"
+        run: |
+          gcloud run services describe hermes-gateway \
+            --project="${GCP_PROJECT}" \
+            --region=europe-north1 \
+            --format="yaml(status.conditions,status.url)"
+          sleep 15
+          bash scripts/publish_chat_inbound_test.sh
+
+      - name: Job summary
+        if: always()
+        run: |
+          URL="$(gcloud run services describe hermes-gateway --project="${GCP_PROJECT}" \
+            --region=europe-north1 --format='value(status.url)' 2>/dev/null || true)"
+          {
+            echo "## Cloud Run Pub/Sub gateway"
+            echo ""
+            echo "- URL: \`${URL:-deploy epäonnistui}\`"
+            echo "- Subscription: \`projects/${GCP_PROJECT}/subscriptions/hermes-chat-events-sub\`"
+            echo "- Testaa Chatissa: **opendoors-hermes-chat** → Hei"
+            if [[ -f deploy.log ]]; then
+              echo ""
+              echo '```'
+              tail -25 deploy.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
