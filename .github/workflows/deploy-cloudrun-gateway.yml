@@ -80,7 +80,9 @@ jobs:
           fi
 
       - name: Deploy Pub/Sub gateway
-        run: bash scripts/deploy_pubsub_cloudrun.sh | tee deploy.log
+        run: |
+          set -o pipefail
+          bash scripts/deploy_pubsub_cloudrun.sh 2>&1 | tee deploy.log
 
       - name: Verify Cloud Run + publish test
         env:
