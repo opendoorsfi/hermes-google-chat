@@ -1,8 +1,8 @@
 {
   "gcp_project": "opendoors-hermes-chat",
-  "github_deploy_sa": "",
-  "wif_provider": "",
-  "bootstrap_requested": true,
+  "github_deploy_sa": "github-hermes-deploy@opendoors-hermes-chat.iam.gserviceaccount.com",
+  "wif_provider": "projects/457812246345/locations/global/workloadIdentityPools/github-pool/providers/github-provider",
+  "bootstrap_requested": false,
   "shared_chat_sa": "hermes-chat-bot",
   "chat_app_display_name": "hermes-chat",
   "default_chat_transport": "pubsub",
@@ -33,5 +33,5 @@
       "gateway_port": 8642
     }
   },
-  "sync_version": 28
+  "sync_version": 29
 }
