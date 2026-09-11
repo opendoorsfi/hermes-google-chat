@@ -11,6 +11,10 @@ fi
 eval "$(python3 "${ROOT}/scripts/chat_registry.py" github-env)"
 {
   echo "GCP_PROJECT=${GCP_PROJECT}"
+  echo "CLOUDSDK_CORE_PROJECT=${GCP_PROJECT}"
+  echo "CLOUDSDK_PROJECT=${GCP_PROJECT}"
+  echo "GCLOUD_PROJECT=${GCP_PROJECT}"
+  echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT}"
   echo "GCP_DEPLOY_SA_EMAIL=${GCP_DEPLOY_SA_EMAIL}"
   if [[ -n "${GCP_WIF_PROVIDER:-}" ]]; then
     echo "GCP_WIF_PROVIDER=${GCP_WIF_PROVIDER}"

@@ -13,6 +13,8 @@ on:
     paths:
       - .github/workflows/deploy-cloudrun-gateway.yml
       - scripts/deploy_pubsub_cloudrun.sh
+      - scripts/github_actions_load_gcp_env.sh
+      - scripts/grant_deploy_sa_chat.sh
       - deploy/**
 
 permissions:
@@ -33,7 +35,22 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
+        id: gcp
+        run: |
+          bash scripts/github_actions_load_gcp_env.sh
+          echo "project=$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['gcp_project'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Grant deploy SA Cloud Run IAM (bootstrap key)
+        env:
+          GCP_BOOTSTRAP_SA_JSON: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
+        if: env.GCP_BOOTSTRAP_SA_JSON != ''
+        run: |
+          echo "${GCP_BOOTSTRAP_SA_JSON}" > /tmp/bootstrap-sa.json
+          chmod 600 /tmp/bootstrap-sa.json
+          gcloud auth activate-service-account --key-file=/tmp/bootstrap-sa.json --quiet
+          export GCP_PROJECT="${{ steps.gcp.outputs.project }}"
+          bash scripts/grant_deploy_sa_chat.sh
+          rm -f /tmp/bootstrap-sa.json
 
       - uses: google-github-actions/auth@v2
         with:
@@ -42,7 +59,10 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.GCP_PROJECT }}
+          project_id: ${{ steps.gcp.outputs.project }}
+
+      - name: Restore registry GCP env
+        run: bash scripts/github_actions_load_gcp_env.sh
 
       - name: Ensure LLM key in Secret Manager
         env:
@@ -67,6 +87,7 @@ jobs:
           EMAIL: opendoorsfinland@gmail.com
           TEXT: "Cloud Run gateway test $(date -u +%H:%M:%S)"
         run: |
+          bash scripts/github_actions_load_gcp_env.sh
           gcloud run services describe hermes-gateway \
             --project="${GCP_PROJECT}" \
             --region=europe-north1 \
@@ -77,6 +98,7 @@ jobs:
       - name: Job summary
         if: always()
         run: |
+          bash scripts/github_actions_load_gcp_env.sh
           URL="$(gcloud run services describe hermes-gateway --project="${GCP_PROJECT}" \
             --region=europe-north1 --format='value(status.url)' 2>/dev/null || true)"
           {

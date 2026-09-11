@@ -23,7 +23,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Load GCP from registry
-        run: bash scripts/github_actions_load_gcp_env.sh
+        id: gcp
+        run: |
+          bash scripts/github_actions_load_gcp_env.sh
+          echo "project=$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['gcp_project'])")" >> "$GITHUB_OUTPUT"
 
       - uses: google-github-actions/auth@v2
         with:
@@ -32,7 +35,10 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.GCP_PROJECT }}
+          project_id: ${{ steps.gcp.outputs.project }}
+
+      - name: Restore registry GCP env
+        run: bash scripts/github_actions_load_gcp_env.sh
 
       - name: Inspect Chat GCP
         run: bash scripts/inspect_chat_gcp.sh | tee inspect.txt
