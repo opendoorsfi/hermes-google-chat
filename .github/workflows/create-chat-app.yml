@@ -70,11 +70,16 @@ jobs:
       - name: Summary
         run: |
           HUB="$(python3 scripts/chat_registry.py hub-json)"
+          TRANSPORT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['transport'])" "${HUB}")"
           {
             echo "## Hermes Chat app"
             python3 -c "import json,sys; h=json.loads(sys.argv[1]); print(f\"**Projekti:** \`{h['gcp_project']}\`  **App:** {h['chat_app_display_name']}  **Transport:** {h['transport']}\")" "${HUB}"
             echo
-            echo "**Console HTTP URL (yksi Save):** \`$(python3 scripts/chat_registry.py inbound-url)\`"
+            if [[ "${TRANSPORT}" == "pubsub" ]]; then
+              echo "**Console Pub/Sub (yksi Save):** \`$(python3 -c "import json,sys; h=json.loads(sys.argv[1]); print(f\"projects/{h['gcp_project']}/topics/{h['pubsub_topic']}\")" "${HUB}")\`"
+            else
+              echo "**Console HTTP URL (yksi Save):** \`$(python3 scripts/chat_registry.py inbound-url)\`"
+            fi
             echo
             echo "**Console:** $(python3 -c "import json,sys; print(json.loads(sys.argv[1])['console_url'])" "${HUB}")"
             echo

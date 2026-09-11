@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # One-shot GCP infra for hermes-google-chat.
 #
-# Default: HTTP Chat inbound (ei Pub/Sub IAM / org-admin).
+# Default: Pub/Sub Chat inbound (Hermes official guide).
 #   export GCP_PROJECT=od-kansiot
 #   export GCP_REGION=europe-north1
 #   bash infra/setup_gcp.sh
 #
-# Pub/Sub (vain jos org sallii chat-api-push IAM):
-#   export HERMES_CHAT_TRANSPORT=pubsub
+# HTTP (vain jos org estää chat-api-push IAM):
+#   export HERMES_CHAT_TRANSPORT=http
 #   bash infra/setup_gcp.sh
 
 set -euo pipefail
@@ -15,7 +15,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GCP_PROJECT="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
 GCP_REGION="${GCP_REGION:-europe-north1}"
-HERMES_CHAT_TRANSPORT="${HERMES_CHAT_TRANSPORT:-http}"
+HERMES_CHAT_TRANSPORT="${HERMES_CHAT_TRANSPORT:-pubsub}"
 SA_NAME="${SA_NAME:-hermes-chat-bot}"
 SA_EMAIL="${SA_NAME}@${GCP_PROJECT}.iam.gserviceaccount.com"
 TOPIC="${TOPIC:-hermes-chat-events}"
@@ -75,7 +75,7 @@ if [[ "${HERMES_CHAT_TRANSPORT}" == "pubsub" ]]; then
     --quiet 2>/tmp/hermes_chat_push_iam.err; then
     echo ""
     echo "VAROITUS: Chat Pub/Sub publisher -IAM epäonnistui (org policy?)."
-    echo "  Vaihda HTTP-moodiin: HERMES_CHAT_TRANSPORT=http bash infra/setup_gcp.sh"
+    echo "  Tarkista org policy: chat-api-push@system.gserviceaccount.com → roles/pubsub.publisher topicilla"
     sed 's/^/  /' /tmp/hermes_chat_push_iam.err || true
     echo ""
   fi

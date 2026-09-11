@@ -224,9 +224,17 @@ jobs:
             if [[ "${{ needs.register.outputs.funnel_ok }}" != "true" ]]; then
               echo "> **Infra:** Päivitä \`config/tenants/registry.json\` → \`funnel_base_url\` (Tailscale Funnel, kerran)."
             fi
-            echo "### Host (gateway + Funnel) — aja host-koneella:"
-            echo '```bash'
-            echo "curl -fsSL https://raw.githubusercontent.com/opendoorsfi/hermes-google-chat/main/scripts/start_hermes_now.sh | bash"
-            echo '```'
-            echo "Tai asenna runner → Actions → **Hermes host sync** → Run workflow."
+            if [[ "${{ needs.register.outputs.chat_transport }}" == "pubsub" ]]; then
+              echo "### Host (Pub/Sub gateway — work-h)"
+              echo "- \`python -m plugins.platforms.google_chat.oauth --install-deps\`"
+              echo "- \`hermes gateway\` (tai systemd hermes-gateway@hermes-ipad)"
+              echo "- SA JSON: Actions artefakti → \`~/.hermes/secrets/google-chat-sa.json\`"
+              echo "Runner → Actions → **Hermes host sync** synkkaa automaattisesti."
+            else
+              echo "### Host (gateway + Funnel) — aja host-koneella:"
+              echo '```bash'
+              echo "curl -fsSL https://raw.githubusercontent.com/opendoorsfi/hermes-google-chat/main/scripts/start_hermes_now.sh | bash"
+              echo '```'
+              echo "Tai asenna runner → Actions → **Hermes host sync** → Run workflow."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -99,11 +99,11 @@ def test_hub_json_od_kansiot() -> None:
     assert h["gcp_project"] == "od-kansiot"
     assert h["chat_app_display_name"] == "hermes-chat"
     assert "ipad@info.opendoors.fi" in h["allowed_users"]
-    assert h["transport"] == "http"
-    assert h["chat_inbound_host"] == "natalia-mac"
-    assert h["primary_tenant"] == "natalia"
-    assert h["chat_http_events_url"] == (
-        "https://tommis-macbook-pro.tail28712d.ts.net/api/platforms/google_chat/events"
+    assert h["transport"] == "pubsub"
+    assert h["chat_gateway_host"] == "work-h"
+    assert h["primary_tenant"] == "ipad"
+    assert h["pubsub_subscription_full"] == (
+        "projects/od-kansiot/subscriptions/hermes-chat-events-sub"
     )
 
 
@@ -116,7 +116,7 @@ def test_inbound_url_command() -> None:
         check=True,
     )
     assert out.stdout.strip() == (
-        "https://tommis-macbook-pro.tail28712d.ts.net/api/platforms/google_chat/events"
+        "https://ubuntu-work-h.tail28712d.ts.net/ipad/api/platforms/google_chat/events"
     )
 
 

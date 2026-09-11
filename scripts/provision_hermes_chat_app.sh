@@ -64,6 +64,22 @@ ${CONSOLE_URL}
 ${CONNECTION_ROWS}
 | Visibility | **Specific people and groups** → ${ALLOWED_USERS} |
 
+## Hermes host (Step 9)
+
+\`\`\`env
+GOOGLE_CHAT_PROJECT_ID=${GCP_PROJECT}
+GOOGLE_CHAT_SUBSCRIPTION_NAME=projects/${GCP_PROJECT}/subscriptions/${SUB}
+GOOGLE_CHAT_SERVICE_ACCOUNT_JSON=/path/to/hermes-chat-bot-sa.json
+GOOGLE_CHAT_ALLOWED_USERS=${ALLOWED_USERS}
+GOOGLE_CHAT_MAX_MESSAGES=1
+GOOGLE_CHAT_MAX_BYTES=16777216
+\`\`\`
+
+\`\`\`bash
+python -m plugins.platforms.google_chat.oauth --install-deps
+hermes gateway
+\`\`\`
+
 ## Chatissa
 
 1. https://chat.google.com/

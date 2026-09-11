@@ -12,7 +12,8 @@ def test_env_example_has_required_keys() -> None:
     required = (
         "GOOGLE_CHAT_PROJECT_ID",
         "HERMES_CHAT_TRANSPORT",
-        "GOOGLE_CHAT_HTTP_EVENTS_URL",
+        "GOOGLE_CHAT_SUBSCRIPTION_NAME",
+        "GOOGLE_CHAT_SERVICE_ACCOUNT_JSON",
         "GOOGLE_CHAT_ALLOWED_USERS",
     )
     for key in required:
@@ -57,7 +58,7 @@ def test_deploy_http_transport() -> None:
     assert "/api/platforms/google_chat/events" in deploy
 
 
-def test_setup_defaults_to_http() -> None:
+def test_setup_defaults_to_pubsub() -> None:
     setup = (ROOT / "infra" / "setup_gcp.sh").read_text(encoding="utf-8")
-    assert 'HERMES_CHAT_TRANSPORT="${HERMES_CHAT_TRANSPORT:-http}"' in setup
+    assert 'HERMES_CHAT_TRANSPORT="${HERMES_CHAT_TRANSPORT:-pubsub}"' in setup
     assert "chat-api-push@system.gserviceaccount.com" in setup

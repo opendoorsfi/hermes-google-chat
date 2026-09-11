@@ -206,10 +206,10 @@ def registry_chat_app_name(reg: dict | None = None) -> str:
     return tenant_manifest(users[0], 0, host_cfg, gcp_project, reg)["CHAT_APP_DISPLAY_NAME"]
 
 
-def inbound_host_id(reg: dict | None = None) -> str:
-    """Host that receives Google Chat HTTP callbacks (one URL per Chat app)."""
+def gateway_host_id(reg: dict | None = None) -> str:
+    """Host that runs the shared Hermes gateway (Pub/Sub pull — one process per Chat app)."""
     reg = reg or load_registry()
-    explicit = str(reg.get("chat_inbound_host", "")).strip()
+    explicit = str(reg.get("chat_gateway_host", "")).strip()
     if explicit:
         return explicit
     entries = iter_user_entries(reg)
@@ -218,8 +218,19 @@ def inbound_host_id(reg: dict | None = None) -> str:
     return ""
 
 
-def inbound_manifest(reg: dict | None = None) -> dict[str, str]:
-    """Manifest for the host configured as Chat HTTP inbound (Console URL)."""
+def inbound_host_id(reg: dict | None = None) -> str:
+    """Host that receives Google Chat HTTP callbacks (one URL per Chat app)."""
+    reg = reg or load_registry()
+    if chat_transport(reg) == "pubsub":
+        return gateway_host_id(reg)
+    explicit = str(reg.get("chat_inbound_host", "")).strip()
+    if explicit:
+        return explicit
+    return gateway_host_id(reg)
+
+
+def primary_manifest(reg: dict | None = None) -> dict[str, str]:
+    """Manifest for the primary Chat gateway (Pub/Sub host or HTTP inbound host)."""
     reg = reg or load_registry()
     gcp_project = registry_gcp_project(reg)
     host_id = inbound_host_id(reg)
@@ -235,6 +246,11 @@ def inbound_manifest(reg: dict | None = None) -> dict[str, str]:
     return tenant_manifest(email, 0, host_cfg, gcp_project, reg)
 
 
+def inbound_manifest(reg: dict | None = None) -> dict[str, str]:
+    """Manifest for the host configured as Chat HTTP inbound (Console URL)."""
+    return primary_manifest(reg)
+
+
 def inbound_events_url(reg: dict | None = None) -> str:
     return chat_events_url(inbound_manifest(reg))
 
@@ -243,13 +259,16 @@ def hub_meta() -> dict[str, str]:
     reg = load_registry()
     users = all_allowed_users(reg)
     transport = chat_transport(reg)
-    inbound = inbound_manifest(reg)
-    primary = inbound["TENANT"]
+    primary_m = primary_manifest(reg)
+    primary = primary_m["TENANT"]
     project = registry_gcp_project(reg)
-    events_url = chat_events_url(inbound)
+    events_url = chat_events_url(primary_m)
+    topic = str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip()
+    sub = str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip()
     return {
         "transport": transport,
         "primary_tenant": primary,
+        "chat_gateway_host": gateway_host_id(reg),
         "chat_inbound_host": inbound_host_id(reg),
         "chat_http_events_url": events_url,
         "gcp_project": project,
@@ -257,8 +276,9 @@ def hub_meta() -> dict[str, str]:
         "wif_provider": registry_wif_provider(reg),
         "chat_app_display_name": registry_chat_app_name(reg),
         "allowed_users": ", ".join(users),
-        "pubsub_topic": str(reg.get("chat_pubsub_topic", "hermes-chat-events")).strip(),
-        "pubsub_sub": str(reg.get("chat_pubsub_subscription", "hermes-chat-events-sub")).strip(),
+        "pubsub_topic": topic,
+        "pubsub_sub": sub,
+        "pubsub_subscription_full": f"projects/{project}/subscriptions/{sub}",
         "console_url": (
             f"https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project={project}"
         ),
@@ -351,19 +371,32 @@ def main() -> int:
     if cmd == "summary":
         reg = load_registry()
         gcp_project = registry_gcp_project(reg)
-        inbound_url = inbound_events_url(reg)
-        print(f"**Chat inbound (Console HTTP URL):** `{inbound_url}`")
-        print(f"**Inbound host:** `{inbound_host_id(reg) or 'default'}`")
+        transport = chat_transport(reg)
+        meta = hub_meta()
+        if transport == "pubsub":
+            print(f"**Chat transport:** Pub/Sub → `{meta['pubsub_subscription_full']}`")
+            print(f"**Gateway host:** `{gateway_host_id(reg) or 'default'}` (tenant `{meta['primary_tenant']}`)")
+        else:
+            inbound_url = inbound_events_url(reg)
+            print(f"**Chat inbound (Console HTTP URL):** `{inbound_url}`")
+            print(f"**Inbound host:** `{inbound_host_id(reg) or 'default'}`")
         print()
+        allowed = ", ".join(all_allowed_users(reg))
         for i, (email, host_id) in enumerate(iter_user_entries(reg)):
             host_cfg = resolve_host(reg, host_id)
             m = tenant_manifest(email, i, host_cfg, gcp_project, reg)
-            events = chat_events_url(m)
             print(f"## {m['CHAT_APP_DISPLAY_NAME']} (`{m['TENANT']}`)")
             print(f"- Email: `{m['GOOGLE_CHAT_ALLOWED_USERS']}`")
             print(f"- Host: `{m.get('HOST', '') or 'default'}` ({m.get('PLATFORM', 'linux')})")
             print(f"- GCP: `{m['GCP_PROJECT']}`")
-            print(f"- Chat HTTP URL: `{events}`")
+            if transport == "pubsub":
+                if host_id == gateway_host_id(reg):
+                    print(f"- Gateway: **tämä host** (Pub/Sub pull, allowed: `{allowed}`)")
+                else:
+                    print("- Gateway: ei tällä hostilla (yksi `hermes gateway` per Chat-app)")
+            else:
+                events = chat_events_url(m)
+                print(f"- Chat HTTP URL: `{events}`")
             bootstrap = host_cfg.get("bootstrap") or ""
             if bootstrap:
                 print(f"- Host bootstrap: `{bootstrap} {m['GOOGLE_CHAT_ALLOWED_USERS']}`")

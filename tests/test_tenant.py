@@ -43,6 +43,7 @@ def test_mac_bootstrap_enables_api_server() -> None:
     assert "GOOGLE_CHAT_HTTP_EVENTS_SERVICE_ACCOUNT_EMAIL=chat@system.gserviceaccount.com" in text
     assert "ensure_mac_gateway_running.sh" in text
     host_env = (ROOT / "scripts" / "install_hermes_host.sh").read_text(encoding="utf-8")
+    assert 'TRANSPORT="${CHAT_TRANSPORT:-pubsub}"' in host_env
     assert "API_SERVER_ENABLED=true" in host_env
 
 
