@@ -41,6 +41,7 @@ jobs:
           echo "project=$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['gcp_project'])")" >> "$GITHUB_OUTPUT"
 
       - name: Grant deploy SA Cloud Run IAM (bootstrap key)
+        continue-on-error: true
         env:
           GCP_BOOTSTRAP_SA_JSON: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
         if: env.GCP_BOOTSTRAP_SA_JSON != ''
