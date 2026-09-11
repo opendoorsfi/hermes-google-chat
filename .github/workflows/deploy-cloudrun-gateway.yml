@@ -89,6 +89,8 @@ jobs:
           if [[ -n "${GCP_BOOTSTRAP_SA_JSON}" ]]; then
             echo "${GCP_BOOTSTRAP_SA_JSON}" > /tmp/bootstrap-sa.json
             chmod 600 /tmp/bootstrap-sa.json
+            # WIF exporttaa GOOGLE_APPLICATION_CREDENTIALS — poista ennen bootstrap-SA:ta.
+            unset GOOGLE_APPLICATION_CREDENTIALS CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE GOOGLE_GHA_CREDS_PATH
             gcloud auth activate-service-account --key-file=/tmp/bootstrap-sa.json --quiet
             bash scripts/github_actions_load_gcp_env.sh
           fi
