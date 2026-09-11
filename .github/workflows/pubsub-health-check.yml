@@ -1,0 +1,54 @@
+name: Pub/Sub health check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - config/tenants/registry.json
+      - scripts/inspect_chat_gcp.sh
+      - scripts/publish_chat_inbound_test.sh
+      - scripts/verify_pubsub_gateway.sh
+      - .github/workflows/pubsub-health-check.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    name: GCP Pub/Sub + test publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load GCP from registry
+        run: bash scripts/github_actions_load_gcp_env.sh
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Inspect Chat GCP
+        run: bash scripts/inspect_chat_gcp.sh | tee inspect.txt
+
+      - name: Publish test message (opendoorsfinland@gmail.com)
+        env:
+          EMAIL: opendoorsfinland@gmail.com
+          TEXT: "Hermes health-check $(date -u +%H:%M:%S)"
+        run: bash scripts/publish_chat_inbound_test.sh
+
+      - name: Summary
+        run: |
+          {
+            echo "## Pub/Sub health"
+            echo ""
+            echo "Test-viesti julkaistu topicille → gateway agent-macbook-pro:lla pitää vastata Chatissa."
+            echo ""
+            echo '```'
+            tail -40 inspect.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

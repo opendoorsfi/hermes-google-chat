@@ -4,9 +4,11 @@
 #   EMAIL=ipad@info.opendoors.fi TEXT="Hei" bash scripts/publish_chat_inbound_test.sh
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:-od-kansiot}"
-TOPIC="${TOPIC:-hermes-chat-events}"
-EMAIL="${EMAIL:-ipad@info.opendoors.fi}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+HUB="$(python3 "${ROOT}/scripts/chat_registry.py" hub-json 2>/dev/null || echo '{}')"
+GCP_PROJECT="${GCP_PROJECT:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('gcp_project','opendoors-hermes-chat'))" "${HUB}")}"
+TOPIC="${TOPIC:-$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('pubsub_topic','hermes-chat-events'))" "${HUB}")}"
+EMAIL="${EMAIL:-opendoorsfinland@gmail.com}"
 TEXT="${TEXT:-Hei — testi Hermes-pubsubista $(date -u +%H:%M:%S)}"
 EVENT_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 

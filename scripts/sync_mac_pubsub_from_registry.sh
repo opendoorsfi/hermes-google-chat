@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# macOS Pub/Sub gateway — yksi hermes gateway per Chat-app (agent-macbook-pro).
+# macOS Pub/Sub gateway — agent-macbook-pro (yksi hermes gateway per Chat-app).
 #
 #   bash scripts/sync_mac_pubsub_from_registry.sh
-#   HERMES_HOST_ID=agent-mac bash scripts/sync_mac_pubsub_from_registry.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,20 +24,20 @@ THIS_HOST="${HERMES_HOST_ID:-$(python3 scripts/chat_registry.py local-host-id 2>
 PRIMARY="$(python3 scripts/chat_registry.py hub-json | python3 -c "import json,sys; print(json.load(sys.stdin)['primary_tenant'])")"
 HERMES_HOME="${HERMES_HOME:-${HOME}/.hermes}"
 ENV_FILE="${HERMES_HOME}/.env"
+HERMES_BIN="$(command -v hermes)"
 
 echo "==> macOS Pub/Sub sync (host=${THIS_HOST:-?}, gateway=${GATEWAY_HOST}, primary=${PRIMARY})"
 
 if [[ "${TRANSPORT}" != "pubsub" ]]; then
-  echo "VIRHE: registry transport=${TRANSPORT} — tämä skripti on Pub/Sub:lle"
+  echo "VIRHE: registry transport=${TRANSPORT}"
   exit 1
 fi
 if [[ -n "${THIS_HOST}" && "${THIS_HOST}" != "${GATEWAY_HOST}" ]]; then
-  echo "OK — Pub/Sub gateway ajetaan hostilla ${GATEWAY_HOST}, ei ${THIS_HOST}"
+  echo "OK — gateway host=${GATEWAY_HOST}, tämä=${THIS_HOST}"
   exit 0
 fi
 
-# Google Chat -riippuvuudet Hermeksen venvissä
-HERMES_BIN="$(command -v hermes)"
+# Google Chat -riippuvuudet
 HERMES_PY=""
 for cand in "${HERMES_HOME}/hermes-agent/venv/bin/python" /usr/local/lib/hermes-agent/venv/bin/python; do
   [[ -n "${cand}" && -x "${cand}" ]] && HERMES_PY="${cand}" && break
@@ -51,16 +50,13 @@ if [[ -n "${HERMES_PY}" && -x "${HERMES_PY}" ]]; then
     echo "==> Asennetaan Google Chat -riippuvuudet"
     HERMES_SRC="${HERMES_PY%/venv/bin/python*}"
     (cd "${HERMES_SRC}" && "${HERMES_PY}" -m plugins.platforms.google_chat.oauth --install-deps) \
-      || "${HERMES_PY}" -m pip install --quiet google-cloud-pubsub google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 httplib2 \
-      || echo "VAROITUS: riippuvuuksien asennus epäonnistui"
+      || "${HERMES_PY}" -m pip install --quiet google-cloud-pubsub google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 httplib2
   fi
 fi
 
-echo "==> ${PRIMARY}: SA JSON"
+mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/secrets"
 export HERMES_HOME
-RESTART_GATEWAY=1 bash "${ROOT}/scripts/ensure_tenant_sa.sh" "${PRIMARY}" || true
 
-mkdir -p "${HERMES_HOME}/secrets"
 MARKER="# --- Google Chat tenant ${PRIMARY} (generated"
 if [[ -f "${ENV_FILE}" ]] && grep -qF "${MARKER}" "${ENV_FILE}" 2>/dev/null; then
   echo "==> ${PRIMARY}: päivitetään Chat-lohko"
@@ -80,33 +76,44 @@ pathlib.Path(env_path).write_text(text, encoding="utf-8")
 PY
   rm -f "${NEW_BLOCK}"
 else
-  mkdir -p "${HERMES_HOME}"
   touch "${ENV_FILE}"
   bash "${ROOT}/scripts/print_tenant_env.sh" "${PRIMARY}" >> "${ENV_FILE}"
-  echo "==> ${PRIMARY}: lisätty Chat-lohko ${ENV_FILE}"
 fi
 chmod 600 "${ENV_FILE}" 2>/dev/null || true
 
-bash "${ROOT}/scripts/setup_chat_outbound_auth.sh" "${PRIMARY}" --restart 2>/dev/null || true
+echo "==> Pub/Sub auth (EI setup_chat_outbound_auth — se poistaa inbound-credentiaalit)"
+bash "${ROOT}/scripts/setup_chat_pubsub_auth.sh" "${PRIMARY}"
+
+# Päivitä launchd wrapper (impersonation + .env)
+PLIST_DST="${HOME}/Library/LaunchAgents/com.hermes.gateway.plist"
+WRAPPER="${ROOT}/scripts/hermes_gateway_run.sh"
+chmod +x "${WRAPPER}"
+if [[ -f "${PLIST_DST}" ]]; then
+  launchctl bootout "gui/$(id -u)" "${PLIST_DST}" 2>/dev/null || true
+fi
+mkdir -p "${HOME}/Library/LaunchAgents"
+sed -e "s|__HERMES_BIN__|${WRAPPER}|g" \
+    -e "s|__HERMES_HOME__|${HERMES_HOME}|g" \
+    "${ROOT}/deploy/macos/com.hermes.gateway.plist" > "${PLIST_DST}"
+launchctl bootstrap "gui/$(id -u)" "${PLIST_DST}" 2>/dev/null || true
+launchctl kickstart -k "gui/$(id -u)/com.hermes.gateway" 2>/dev/null || true
 
 echo "==> Käynnistetään hermes gateway (Pub/Sub)"
-if hermes gateway restart 2>/dev/null; then
-  echo "OK: hermes gateway restart"
-elif hermes gateway install 2>/dev/null && hermes gateway restart 2>/dev/null; then
-  echo "OK: hermes gateway install + restart"
-else
-  echo "VAROITUS: hermes gateway restart epäonnistui — aja: hermes gateway run"
+export HERMES_BIN
+if [[ -f "${ENV_FILE}" ]]; then
+  IMP_SA="$(grep '^GOOGLE_CHAT_IMPERSONATE_SERVICE_ACCOUNT=' "${ENV_FILE}" 2>/dev/null | cut -d= -f2- || true)"
+  [[ -n "${IMP_SA}" ]] && export CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT="${IMP_SA}"
 fi
+HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" gateway restart 2>/dev/null \
+  || HERMES_HOME="${HERMES_HOME}" "${WRAPPER}" &
 
-for key in GOOGLE_CHAT_SUBSCRIPTION_NAME HERMES_CHAT_TRANSPORT; do
-  if ! grep -q "^${key}=" "${ENV_FILE}" 2>/dev/null; then
-    echo "VIRHE: ${key} puuttuu ${ENV_FILE}"
-    exit 1
-  fi
-done
-if [[ ! -s "${HERMES_HOME}/secrets/google-chat-sa.json" ]]; then
-  echo "VAROITUS: SA JSON puuttuu — aja ensure_tenant_sa tai lataa CI-artefakti"
-fi
+sleep 6
+bash "${ROOT}/scripts/verify_pubsub_gateway.sh" || {
+  echo ""
+  echo "=== gateway.err (viimeiset) ==="
+  tail -30 "${HERMES_HOME}/logs/gateway.err" 2>/dev/null || true
+  exit 1
+}
 
-echo "OK — macOS Pub/Sub gateway synkattu (primary=${PRIMARY})"
+echo "OK — macOS Pub/Sub gateway synkattu"
 python3 scripts/chat_registry.py summary

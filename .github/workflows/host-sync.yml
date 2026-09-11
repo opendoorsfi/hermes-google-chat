@@ -49,24 +49,7 @@ jobs:
         run: |
           TRANSPORT="$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['default_chat_transport'])")"
           if [[ "${TRANSPORT}" == "pubsub" ]]; then
-            ENV_FILE="${HOME}/.hermes/.env"
-            for key in GOOGLE_CHAT_SUBSCRIPTION_NAME HERMES_CHAT_TRANSPORT; do
-              if ! grep -q "^${key}=" "${ENV_FILE}" 2>/dev/null; then
-                echo "VIRHE: ${key} puuttuu ${ENV_FILE}"
-                exit 1
-              fi
-            done
-            if [[ ! -s "${HOME}/.hermes/secrets/google-chat-sa.json" ]]; then
-              echo "VAROITUS: SA JSON puuttuu — odota Sync Chat users artefaktia"
-            fi
-            if [[ "$(uname -s)" == "Darwin" ]]; then
-              hermes gateway status 2>/dev/null || pgrep -fl "hermes gateway" || true
-            else
-              source scripts/lib/tenant.sh
-              load_tenant ipad
-              systemctl is-active "hermes-gateway@${LINUX_USER}.service" || true
-            fi
-            echo "OK — Pub/Sub .env + gateway tarkistettu"
+            bash scripts/verify_pubsub_gateway.sh
           else
             if [[ "$(uname -s)" == "Darwin" ]]; then
               PORT=8642
