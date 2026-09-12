@@ -7,7 +7,8 @@ SHELL_SCRIPTS := infra/setup_gcp.sh infra/setup_tenant_gcp.sh \
 	scripts/ensure_tenant_sa.sh scripts/fetch_sa_to_path.sh \
 	scripts/grant_deploy_sa_chat.sh scripts/deploy_pubsub_cloudrun.sh \
 	scripts/setup_chat_pubsub_auth.sh \
-	scripts/hermes_gateway_run.sh scripts/verify_pubsub_gateway.sh \
+	scripts/hermes_gateway_run.sh 	scripts/verify_pubsub_gateway.sh \
+	scripts/self_heal_gateway.sh \
 	scripts/sync_mac_pubsub_from_registry.sh \
 	scripts/sync_mac_from_registry.sh \
 	$(wildcard scripts/*.sh)

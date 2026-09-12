@@ -54,7 +54,8 @@ jobs:
           {
             echo "## Pub/Sub health"
             echo ""
-            echo "Test-viesti julkaistu topicille → gateway agent-macbook-pro:lla pitää vastata Chatissa."
+            echo "Test-viesti julkaistu topicille → Cloud Run / host gateway pitää vastata Chatissa."
+            echo "Epäonnistuessa: Self-heal gateway -workflow korjaa automaattisesti."
             echo ""
             echo '```'
             tail -40 inspect.txt

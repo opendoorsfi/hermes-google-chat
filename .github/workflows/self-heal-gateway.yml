@@ -1,0 +1,106 @@
+name: Self-heal gateway
+
+# Itsekorjaus: diagnoosi + automaattinen korjaus kun yhteys/gateway on rikki.
+# Käynnistyy ajastuksella, deploy/health -epäonnistumisen jälkeen tai manuaalisesti.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_run:
+    workflows:
+      - Deploy Cloud Run Pub/Sub gateway
+      - Pub/Sub health check
+      - HTTP endpoint check
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: self-heal-gateway
+  cancel-in-progress: false
+
+jobs:
+  heal:
+    name: Diagnose + remediate
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load GCP from registry
+        id: gcp
+        run: |
+          bash scripts/github_actions_load_gcp_env.sh
+          echo "project=$(python3 -c "import json; print(json.load(open('config/tenants/registry.json'))['gcp_project'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Grant IAM (bootstrap key)
+        continue-on-error: true
+        env:
+          GCP_BOOTSTRAP_SA_JSON: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
+        if: env.GCP_BOOTSTRAP_SA_JSON != ''
+        run: |
+          echo "${GCP_BOOTSTRAP_SA_JSON}" > /tmp/bootstrap-sa.json
+          chmod 600 /tmp/bootstrap-sa.json
+          gcloud auth activate-service-account --key-file=/tmp/bootstrap-sa.json --quiet
+          export GCP_PROJECT="${{ steps.gcp.outputs.project }}"
+          bash scripts/grant_deploy_sa_chat.sh
+          rm -f /tmp/bootstrap-sa.json
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ steps.gcp.outputs.project }}
+
+      - name: Restore registry GCP env
+        run: bash scripts/github_actions_load_gcp_env.sh
+
+      - name: Ensure LLM key from GitHub secret
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [[ -n "${OPENROUTER_API_KEY}" ]]; then
+            echo -n "${OPENROUTER_API_KEY}" | gcloud secrets versions add hermes-llm-api-key \
+              --data-file=- --project="${GCP_PROJECT}" 2>/dev/null || \
+            echo -n "${OPENROUTER_API_KEY}" | gcloud secrets create hermes-llm-api-key \
+              --data-file=- --project="${GCP_PROJECT}"
+            echo "OK — hermes-llm-api-key päivitetty"
+          fi
+
+      - name: Self-heal (diagnose + apply)
+        env:
+          GCP_BOOTSTRAP_SA_JSON: ${{ secrets.GCP_BOOTSTRAP_SA_JSON }}
+        run: |
+          if [[ -n "${GCP_BOOTSTRAP_SA_JSON}" ]]; then
+            echo "${GCP_BOOTSTRAP_SA_JSON}" > /tmp/bootstrap-sa.json
+            chmod 600 /tmp/bootstrap-sa.json
+            unset GOOGLE_APPLICATION_CREDENTIALS CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE GOOGLE_GHA_CREDS_PATH
+            gcloud auth activate-service-account --key-file=/tmp/bootstrap-sa.json --quiet
+            bash scripts/github_actions_load_gcp_env.sh
+          fi
+          set -o pipefail
+          bash scripts/self_heal_gateway.sh --apply 2>&1 | tee self-heal.log
+          rm -f /tmp/bootstrap-sa.json
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Self-heal gateway"
+            echo ""
+            echo "Projekti: \`${{ steps.gcp.outputs.project }}\`"
+            if [[ -f self-heal.log ]]; then
+              echo '```'
+              tail -50 self-heal.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
