@@ -5,6 +5,12 @@ name: Self-heal gateway
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/self_heal_gateway.sh
+      - .github/workflows/self-heal-gateway.yml
+      - AGENTS.md
   schedule:
     - cron: "0 */6 * * *"
   workflow_run:
