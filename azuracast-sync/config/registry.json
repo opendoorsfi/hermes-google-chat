@@ -1,0 +1,12 @@
+{
+  "gcp_project": "od-azuracast-sync",
+  "gcp_project_number": "381850973284",
+  "gcp_region": "europe-north1",
+  "cloud_run_service": "azuracast-sync",
+  "cloud_run_url": "https://azuracast-sync-381850973284.europe-north1.run.app",
+  "cloud_run_pilot_url": "https://azuracast-sync-pilot-zhgilyxe5a-lz.a.run.app",
+  "azuracast_base_url": "https://radio.opendoors.fi",
+  "sync_log_sheet_id": "1Gh_jZv6CvZZgGlG_Jf7mwt5IZATb7Gnm2OLXBdpboYQ",
+  "github_deploy_sa": "github-azuracast-deploy@od-azuracast-sync.iam.gserviceaccount.com",
+  "wif_provider": "projects/381850973284/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+}
