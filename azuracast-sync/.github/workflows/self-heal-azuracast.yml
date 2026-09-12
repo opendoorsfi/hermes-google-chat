@@ -1,0 +1,77 @@
+name: Self-heal AzuraCast sync
+
+# Itsekorjaus: diagnoosi + automaattinen korjaus kun yhteys/sync on rikki.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - azuracast-sync/**
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_run:
+    workflows:
+      - AzuraCast health check
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: self-heal-azuracast
+  cancel-in-progress: false
+
+jobs:
+  heal:
+    name: Diagnose + remediate
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: azuracast-sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load GCP from registry
+        id: gcp
+        run: |
+          bash scripts/github_actions_load_gcp_env.sh
+          echo "project=$(python3 -c "import json; print(json.load(open('config/registry.json'))['gcp_project'])")" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL != '' && secrets.GCP_DEPLOY_SA_EMAIL || env.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ steps.gcp.outputs.project }}
+
+      - name: Restore registry GCP env
+        run: bash scripts/github_actions_load_gcp_env.sh
+
+      - name: Self-heal (diagnose + apply)
+        env:
+          AZURACAST_API_KEY: ${{ secrets.AZURACAST_API_KEY }}
+        run: |
+          set -o pipefail
+          bash scripts/self_heal_azuracast.sh --apply 2>&1 | tee self-heal.log
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Self-heal AzuraCast sync"
+            echo ""
+            echo "Projekti: \`${{ steps.gcp.outputs.project }}\`"
+            if [[ -f self-heal.log ]]; then
+              echo '```'
+              tail -50 self-heal.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

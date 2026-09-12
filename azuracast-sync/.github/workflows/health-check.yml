@@ -1,0 +1,38 @@
+name: AzuraCast health check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - azuracast-sync/**
+  schedule:
+    - cron: "15 */3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: HTTP health
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: azuracast-sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Diagnose (no apply)
+        env:
+          AZURACAST_API_KEY: ${{ secrets.AZURACAST_API_KEY }}
+        run: bash scripts/self_heal_azuracast.sh | tee health.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## AzuraCast health"
+            echo '```'
+            tail -40 health.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

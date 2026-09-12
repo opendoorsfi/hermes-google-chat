@@ -7,7 +7,8 @@
 | Projekti | Käyttö |
 |----------|--------|
 | **`opendoors-hermes-chat`** | Hermes Google Chat (Pub/Sub → Cloud Run gateway) |
-| `od-kansiot` / `od-azuracast-sync` | Vanhat / muut — **älä käytä Hermesille** |
+| `od-kansiot` | Vanha — **älä käytä Hermesille** |
+| `od-azuracast-sync` | AzuraCast Drive-sync — katso `azuracast-sync/` |
 
 Lähde: `config/tenants/registry.json` → `gcp_project`, `chat_app_display_name`, `github_deploy_sa`.
 

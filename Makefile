@@ -28,6 +28,7 @@ build:
 	docker build -t hermes-google-chat:local -f deploy/Dockerfile .
 
 validate: test lint
+	@$(MAKE) -C azuracast-sync validate
 	@echo "validate ok"
 
 standalone-check:
